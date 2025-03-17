@@ -165,7 +165,7 @@ check_required_variables() {
   TO_CHECK=(
     "COMPOSE_PROJECT_NAME"
     "NODE_VERSION"
-    "NODE_NAME"
+    "NODE_ROLE"
     "NODE_NET_P2P_PORT"
     "ZKV_CONF_NAME"
     "ZKV_CONF_BASE_PATH"
@@ -180,23 +180,22 @@ check_required_variables() {
       "NGINX_NET_IP_ADDRESS"
       "NODE_NET_IP_ADDRESS"
       "NODE_NET_P2P_PORT_WS"
-      "ZKV_NODE_KEY_FILE"
       "ZKV_CONF_LISTEN_ADDR"
-      "ZKV_CONF_LISTEN_ADDR_2"
+      "ZKV_NODE_KEY"
     )
   fi
 
   if [ "${NODE_TYPE}" = "validator-node" ]; then
     TO_CHECK+=(
-      "ZKV_NODE_KEY_FILE"
       "ZKV_CONF_VALIDATOR"
-      "ZKV_SECRET_PHRASE_PATH"
+      "ZKV_NODE_KEY"
+      "ZKV_SECRET_PHRASE"
     )
   fi
 
   if [ "${NODE_TYPE}" = "rpc-node" ]; then
     TO_CHECK+=(
-      "NODE_NET_RPC_PORT"
+      "NODE_NET_P2P_PORT_WS"
       "ZKV_CONF_RPC_CORS"
       "ZKV_CONF_RPC_EXTERNAL"
       "ZKV_CONF_RPC_METHODS"
@@ -210,7 +209,7 @@ check_required_variables() {
 }
 
 select_node_type() {
-  log_warn "\nWhat 'node type' would you like to run: "
+  log_warn "\nSelect 'node type' to proceed with the operation: "
   node_types="rpc-node validator-node boot-node"
   NODE_TYPE="$(selection "${node_types}")"
   export NODE_TYPE
@@ -236,6 +235,7 @@ set_env_file() {
 }
 
 create_node_key() {
+  node_key_provided="false"
   use_existing_node_key_answer="$(selection_yn "\nDo you want to import an already existing node key?")"
   if [ "${use_existing_node_key_answer}" = "yes" ]; then
     log_warn "\nPlease type or paste now the node key you want to import: "
@@ -244,17 +244,22 @@ create_node_key() {
     if [ "${set_existing_node_key_answer}" = "no" ]; then
       fn_die "Node key import aborted; please run again the init.sh script. Exiting ...\n"
     fi
+    node_key_provided="true"
   else
-    if ! node_key="$(docker run --rm --entrypoint zkv-node horizenlabs/zkverify:"${NODE_VERSION}" key generate-node-key)"; then
+    if ! node_key="$(docker run --rm --entrypoint zkv-relay horizenlabs/zkverify:"${NODE_VERSION}" key generate-node-key)"; then
       fn_die "\nError: could not generate node key. Fix it before proceeding any further. Exiting...\n"
     fi
   fi
   if [ -z "${node_key}" ]; then
     fn_die "\nError: node key is empty. Fix it before proceeding any further. Exiting...\n"
   fi
-  printf "%s" "${node_key}" > "${DEPLOYMENT_DIR}/configs/node/secrets/node_key.dat"
-  log_info "\nFile ${DEPLOYMENT_DIR}/configs/node/secrets/node_key.dat was created."
-  log_red "\n***STORE A COPY OF THE FILE IN A SAFE PLACE. KEEP THE FILE UNDER ITS ORIGINAL LOCATION AS WELL SINCE IT IS REQUIRED TO RUN AND RECOVER (IF NEEDED) THE NODE***"
+  sed -i "s/ZKV_NODE_KEY=.*/ZKV_NODE_KEY=\"${node_key}\"/g" "${ENV_FILE}" || fn_die "\nError: could not set name 'ZKV_NODE_KEY' variable in ${ENV_FILE} file. Fix it before proceeding any further. Exiting...\n"
+  if [ "${node_key_provided}" != "true" ]; then
+    printf "%s" "${node_key}" > "${DEPLOYMENT_DIR}/configs/node/secrets/node_key.dat"
+    chmod 0400 "${DEPLOYMENT_DIR}/configs/node/secrets/node_key.dat"
+    log_info "\nFile ${DEPLOYMENT_DIR}/configs/node/secrets/node_key.dat was created."
+    log_red "\n***STORE A COPY OF THE FILE IN A SAFE PLACE. ONCE STORED THE FILE CAN BE DELETED. IT IS REQUIRED TO RECOVER (IF NEEDED) THE NODE***"
+  fi
 }
 
 create_secret_phrase() {
@@ -267,24 +272,23 @@ create_secret_phrase() {
       fn_die "Secret phrase import aborted; please run again the init.sh script. Exiting ...\n"
     fi
   else
-    if ! secret_json="$(docker run --rm --entrypoint zkv-node horizenlabs/zkverify:"${NODE_VERSION}" key generate --output-type json)"; then
+    if ! secret_json="$(docker run --rm --entrypoint zkv-relay horizenlabs/zkverify:"${NODE_VERSION}" key generate --output-type json)"; then
       fn_die "\nError: could not generate secret phrase. Fix it before proceeding any further. Exiting...\n"
     fi
     if [ -z "${secret_json}" ]; then
       fn_die "\nError: secret json is empty. Fix it before proceeding any further. Exiting...\n"
     fi
-    echo "${secret_json}" >"${DEPLOYMENT_DIR}/configs/node/secrets/secret.json"
+    printf "%s" "${secret_json}" > "${DEPLOYMENT_DIR}/configs/node/secrets/secret.json"
+    chmod 0400 "${DEPLOYMENT_DIR}/configs/node/secrets/secret.json"
     log_info "\nFile ${DEPLOYMENT_DIR}/configs/node/secrets/secret.json was created."
-    log_red "\n***STORE A COPY OF THE FILE IN A SAFE PLACE.  IT IS REQUIRED TO RECOVER (IF NEEDED) THE NODE***"
+    log_red "\n***STORE A COPY OF THE FILE IN A SAFE PLACE. ONCE STORED THE FILE CAN BE DELETED. IT IS REQUIRED TO RECOVER (IF NEEDED) THE NODE***"
     sleep 2
     secret_phrase="$(jq -r '.secretPhrase' "${DEPLOYMENT_DIR}/configs/node/secrets/secret.json")"
   fi
   if [ -z "${secret_phrase}" ]; then
     fn_die "\nError: secret phrase is empty. Fix it before proceeding any further. Exiting...\n"
   fi
-  echo -n "${secret_phrase}" >"${DEPLOYMENT_DIR}/configs/node/secrets/secret_phrase.dat"
-  log_info "\nFile ${DEPLOYMENT_DIR}/configs/node/secrets/secret_phrase.dat was created."
-  log_red "\n***STORE A COPY OF THE FILE IN A SAFE PLACE. KEEP THE FILE UNDER ITS ORIGINAL LOCATION AS WELL SINCE IT IS REQUIRED TO RUN AND RECOVER (IF NEEDED) THE NODE***"
+  sed -i "s/ZKV_SECRET_PHRASE=.*/ZKV_SECRET_PHRASE=\"${secret_phrase}\"/g" "${ENV_FILE}" || fn_die "\nError: could not set name 'ZKV_SECRET_PHRASE' variable in ${ENV_FILE} file. Fix it before proceeding any further. Exiting...\n"
   sleep 2
 }
 

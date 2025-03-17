@@ -7,11 +7,11 @@ This repository contains all the resources for deploying a zkverify rpc, validat
 
 There are three types of nodes that can be deployed:
 
-1. Rpc node
-2. Validator node
-3. Boot node
+1. rpc
+2. validator
+3. boot
 
-When using any of the scripts provided in this repository, it will be requested to select **node type** and the **network** to run (testnet).
+When using any of the scripts provided in this repository, it will be requested to select **node type** and the **network** to run on(testnet).
 
 ---
 
@@ -26,7 +26,7 @@ When using any of the scripts provided in this repository, it will be requested 
 
 ## Installation instructions
 
-Run the init.sh script and follow the instructions in order to prepare the deployment for the first time.
+Run the [init.sh](./scripts/init.sh) script and follow the instructions in order to prepare the deployment for the first time.
 
 ```shell
 ./scripts/init.sh
@@ -58,6 +58,21 @@ Run the [destroy.sh](./scripts/destroy.sh) script to destroy the node stack and 
 
 ```shell
 ./scripts/destroy.sh
+```
+
+### Re-genesis
+
+> ⚠️  **Run this script ONLY if your currently running zkVerify node is on a version earlier than 0.9.0**
+>
+> For a fresh deployment, use [init.sh](./scripts/init.sh) script instead
+
+#### To perform re-genesis:
+
+1. Pull the latest changes from the repository.
+2. Run the [regenesis.sh](./scripts/regenesis.sh) script.
+
+```shell
+./scripts/regenesis.sh
 ```
 
 ---

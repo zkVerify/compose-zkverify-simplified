@@ -52,7 +52,6 @@ if ! [ -d "${DEPLOYMENT_DIR}" ]; then
 
   # shellcheck source=.env
   source "${ENV_FILE}" || fn_die "\nError: could not source ${ENV_FILE} file. Fix it before proceeding any further. Exiting...\n"
-  check_required_variables
 
   if [ "${NODE_TYPE}" = "boot-node" ]; then
     log_info "\n=== Setting up node configuration"
