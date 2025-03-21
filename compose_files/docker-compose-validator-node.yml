@@ -6,19 +6,18 @@ networks:
 
 services:
   node:
-    image: horizenlabs/zkverify:${NODE_VERSION}
+    image: horizenlabs/zkverify:${NODE_VERSION?err_unset}
+    container_name: ${NODE_ROLE?err_unset}
+    hostname: ${NODE_ROLE?err_unset}
+    restart: on-failure:5
     env_file:
       - .env
-    container_name: ${NODE_NAME}
-    hostname: ${NODE_NAME}
-    restart: on-failure:5
     networks:
       inet:
     ports:
-      - "${NODE_NET_P2P_PORT}:${NODE_NET_P2P_PORT}"
+      - "${NODE_NET_P2P_PORT?err_unset}:${NODE_NET_P2P_PORT?err_unset}"
     volumes:
-      - node-data:/data
-      - ./configs/node:/data/config
+      - "node-data:/data:rw"
     logging:
       driver: "json-file"
       options:
