@@ -54,10 +54,6 @@ log_info "\n**************************************************"
 log_info "✅ The node has been reset and will be configured from scratch ✅"
 log_info "**************************************************\n"
 
-log_info "\n=== Checking out latest code..."
-# shellcheck disable=SC2015
-git reset --hard && git checkout main && git reset --hard origin/main && git pull --rebase || fn_die "\nError: Failed to pull the latest code on 'main' branch. Exiting...\n"
-
 "${ROOT_DIR}/scripts/init.sh"
 
 log_info "\n=== Re-genesis has been performed successfully."

@@ -4,7 +4,7 @@
 ---
 **March 21, 2025**
 
-> ⚠️  **Re-genesis is required on TESTNET for this release**
+> ⚠️  **This release brings re-genesis on TESTNET network**
 
 CHANGES:
 * node: zkVerify version upgraded to `0.9.0-0.12.0-relay`

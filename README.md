@@ -66,7 +66,7 @@ Run the [destroy.sh](./scripts/destroy.sh) script to destroy the node stack and 
 >
 > For a fresh deployment, use [init.sh](./scripts/init.sh) script instead
 
-#### To perform re-genesis:
+#### To comply with re-genesis:
 
 1. Pull the latest changes from the repository.
 2. Run the [regenesis.sh](./scripts/regenesis.sh) script.

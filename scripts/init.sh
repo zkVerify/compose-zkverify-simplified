@@ -45,23 +45,15 @@ if ! [ -d "${DEPLOYMENT_DIR}" ]; then
     fi
 
     if [ "${NODE_TYPE}" = "boot-node" ]; then
+      create_node_key
       set_acme_vhost
       set_acme_email_address
     fi
-  fi
 
-  # shellcheck source=.env
-  source "${ENV_FILE}" || fn_die "\nError: could not source ${ENV_FILE} file. Fix it before proceeding any further. Exiting...\n"
-
-  if [ "${NODE_TYPE}" = "boot-node" ]; then
-    log_info "\n=== Setting up node configuration"
-    create_node_key
-  fi
-
-  if [ "${NODE_TYPE}" = "validator-node" ]; then
-    log_info "\n=== Setting up node configuration"
-    create_node_key
-    create_secret_phrase
+    if [ "${NODE_TYPE}" = "validator-node" ]; then
+      create_node_key
+      create_secret_phrase
+    fi
   fi
 fi
 

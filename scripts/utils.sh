@@ -195,7 +195,7 @@ check_required_variables() {
 
   if [ "${NODE_TYPE}" = "rpc-node" ]; then
     TO_CHECK+=(
-      "NODE_NET_P2P_PORT_WS"
+      "NODE_NET_RPC_PORT"
       "ZKV_CONF_RPC_CORS"
       "ZKV_CONF_RPC_EXTERNAL"
       "ZKV_CONF_RPC_METHODS"

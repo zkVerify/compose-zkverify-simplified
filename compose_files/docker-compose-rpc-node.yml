@@ -16,7 +16,7 @@ services:
       inet:
     ports:
       - "${NODE_NET_P2P_PORT?err_unset}:${NODE_NET_P2P_PORT?err_unset}"
-      - "${NODE_NET_P2P_PORT_WS?err_unset}:${NODE_NET_P2P_PORT_WS?err_unset}"
+      - "${NODE_NET_RPC_PORT?err_unset}:${NODE_NET_RPC_PORT?err_unset}"
     volumes:
       - "node-data:/data:rw"
     logging:
