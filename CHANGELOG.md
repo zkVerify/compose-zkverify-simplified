@@ -1,5 +1,9 @@
 # Changelog
 
+**0.9.1**
+
+* This release includes version **0.9.1** of the [zkVerify](https://github.com/HorizenLabs/zkVerify) project and introduces the the max connections parameter for the rpc nodes setting it to 1000. 
+
 **0.9.0**
 ---
 **March 21, 2025**
