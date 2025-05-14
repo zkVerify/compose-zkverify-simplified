@@ -26,6 +26,8 @@ cp "${ROOT_DIR}/compose_files/docker-compose-${NODE_TYPE}.yml" "${DEPLOYMENT_DIR
 # Define the auto update variables
 auto_update_vars=(
   "NODE_VERSION"
+  "ZKV_CONF_RPC_EXTERNAL"
+  "ZKV_CONF_VALIDATOR"
 )
 
 conditional_update_vars=()

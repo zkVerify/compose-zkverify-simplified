@@ -330,6 +330,19 @@ set_up_pruning_env_var() {
   fi
 }
 
+set_up_rpc_max_batch_request_len() {
+  max_batch_request_len_answer="$(selection_yn "\nDo you want to set a limit for the max length per RPC batch request")"
+  if [ "${max_batch_request_len_answer}" = "yes" ]; then
+    log_warn "\nPlease specify the maximum number of requests allowed in a single RPC batch (must be a whole number): "
+    read -rp "#? " max_batch_request_len_value
+    while [ -z "${max_batch_request_len_value}" ]; do
+      log_warn "\nMaximum number of requests allowed in a single RPC batch value cannot be empty. Try again..."
+      read -rp "#? " max_batch_request_len_value
+    done
+    echo "ZKV_CONF_RPC_MAX_BATCH_REQUEST_LEN=${max_batch_request_len_value}" >> "${ENV_FILE}" || fn_die "\nError: could not set a limit for the max length per RPC batch request variable in ${ENV_FILE} file. Fix it before proceeding any further. Exiting...\n"
+  fi
+}
+
 # Function to set and check if the FQDN is valid
 set_acme_vhost() {
   while true; do
