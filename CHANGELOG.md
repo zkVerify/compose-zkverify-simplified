@@ -1,7 +1,6 @@
 # Changelog
 **0.9.1+1**
 ---
-**May 14, 2025**
 
 CHANGES:
 * node: zkVerify version upgraded to `0.9.1-0.14.0-relay`
