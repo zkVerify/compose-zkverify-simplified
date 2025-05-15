@@ -1,4 +1,14 @@
 # Changelog
+**0.9.1+1**
+---
+
+CHANGES:
+* node: zkVerify version upgraded to `0.9.1-0.14.0-relay`
+* node: all the substrate parameters in the `.env` file that do not require a value such as `--validator` (**ZKV_CONF_VALIDATOR**) were switched to the following format for example:
+  * ZKV_CONF_VALIDATOR=true → ZKV_CONF_VALIDATOR=yes
+* node: for `rpc` node, adding an option to set a limit for the max length per RPC batch request
+  > ⚠️ **Important:** When using the `update.sh` script to enable this setting, manually add the `ZKV_CONF_RPC_MAX_BATCH_REQUEST_LEN` variable to your `.env` file **before starting the compose project**.
+  > This variable expects a **non-negative integer** value.
 
 **0.9.1**
 
