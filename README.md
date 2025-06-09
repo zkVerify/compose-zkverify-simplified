@@ -34,6 +34,17 @@ Run the [init.sh](./scripts/init.sh) script and follow the instructions in order
 
 The script will generate the required deployment files under the [deployments](deployments) directory.
 
+## Optional ZKV Node Data Snapshots
+
+To speed up the initialization of your node, **daily snapshots of chain data** are available [here](https://bootstraps.zkverify.io). These snapshots allow you to skip the full synchronization from genesis, saving significant time and resources.
+
+Snapshots are available in two forms:
+
+- **Full node snapshot**
+- **Archive node snapshot**
+
+Each snapshot is a .tar.gz archive containing the **db** directory, intended to replace the **db** directory generated during the initial node run.
+
 ### Update
 
 When a new version of the node is released this project will be updated with the new version modified in the `.env.*.template` files.
@@ -74,12 +85,6 @@ Run the [destroy.sh](./scripts/destroy.sh) script to destroy the node stack and 
 ```shell
 ./scripts/regenesis.sh
 ```
-
-### Seeder service
-
-If you want to avoid syncing the nodes from scratch, you can use the daily snapshots provided by the [zkVerify Seeder Service](https://bootstraps.zkverify.io/). These snapshots, daily updated, contain a pre-synced db directory and can significantly speed up node initialization.
-
-Refer to the [Snapshot Service Documentation](https://docs.zkverify.io/node-operators/run_using_docker/using_seeder_service_backups) for full instructions.
 
 ---
 
