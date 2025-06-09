@@ -75,6 +75,12 @@ Run the [destroy.sh](./scripts/destroy.sh) script to destroy the node stack and 
 ./scripts/regenesis.sh
 ```
 
+### Seeder service
+
+If you want to avoid syncing the nodes from scratch, you can use the daily snapshots provided by the [zkVerify Seeder Service](https://bootstraps.zkverify.io/). These snapshots, daily updated, contain a pre-synced db directory and can significantly speed up node initialization.
+
+Refer to the [Snapshot Service Documentation](https://docs.zkverify.io/node-operators/run_using_docker/using_seeder_service_backups) for full instructions.
+
 ---
 
 ## Usage Guide
