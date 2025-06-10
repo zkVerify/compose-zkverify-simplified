@@ -34,6 +34,17 @@ Run the [init.sh](./scripts/init.sh) script and follow the instructions in order
 
 The script will generate the required deployment files under the [deployments](deployments) directory.
 
+## Optional: ZKV Node Data Snapshots
+
+To reduce the time required for a node's startup, **daily snapshots of chain data** are available [here](https://bootstraps.zkverify.io).
+
+Snapshots are available in two forms:
+
+- **Full node snapshot**
+- **Archive node snapshot**
+
+Each snapshot is a **.tar.gz** archive containing the **db** directory, intended to replace the **db** directory generated during the initial node run.
+
 ### Update
 
 When a new version of the node is released this project will be updated with the new version modified in the `.env.*.template` files.
