@@ -1,4 +1,11 @@
 # Changelog
+**0.10.0**
+---
+
+CHANGES:
+* node: zkVerify version upgraded to `0.10.0-0.17.0-relay`
+* automation: `update.sh` script removes variables from the `.env` file if they no longer exist in the template.
+
 **0.9.1+1**
 ---
 
