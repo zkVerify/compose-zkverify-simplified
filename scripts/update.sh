@@ -46,7 +46,7 @@ log_info "\n=== Removing obsolete variables from ${ENV_FILE} that are no longer 
 # Get all var names from the template
 template_var_names=()
 for line in "${env_template_lines[@]}"; do
-  var_name=$(echo "${line}" | cut -d'=' -f1)
+  var_name="$(cut -d'=' -f1 <<< "${line}")"
   template_var_names+=("${var_name}")
 done
 
