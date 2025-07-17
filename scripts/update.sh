@@ -40,6 +40,26 @@ while IFS= read -r line; do
   env_template_lines+=("${line}")
 done <"${ENV_FILE_TEMPLATE}"
 
+# Remove variables from ENV_FILE that no longer exist in the template
+log_info "\n=== Removing obsolete variables from ${ENV_FILE} that are no longer in the template..."
+
+# Get all var names from the template
+template_var_names=()
+for line in "${env_template_lines[@]}"; do
+  var_name=$(echo "${line}" | cut -d'=' -f1)
+  template_var_names+=("${var_name}")
+done
+
+# Read all variable lines from current .env
+while IFS= read -r line; do
+  [[ -z "${line}" || "${line:0:1}" == "#" ]] && continue
+  env_var_name=$(echo "${line}" | cut -d'=' -f1)
+  if ! printf '%s\n' "${template_var_names[@]}" | grep -q -P "^${env_var_name}$"; then
+    log_warn "Removing obsolete variable '${env_var_name}' from ${ENV_FILE}"
+    sed -i "/^${env_var_name}=.*/d" "${ENV_FILE}"
+  fi
+done < <(grep -v '^#' "${ENV_FILE}")
+
 # Append new env vars to .env file
 log_info "\n=== Appending new env vars to ${ENV_FILE} file"
 for line in "${env_template_lines[@]}"; do
@@ -72,7 +92,8 @@ for line in "${env_template_lines[@]}"; do
           log_debug "\nThe value of ${var_name} in the ${ENV_FILE} file is different from the value in the ${ENV_FILE_TEMPLATE} file."
           log_debug "${ENV_FILE} value: \033[1m$(grep "^${var_name}=" "${ENV_FILE}")\033[0m"
           log_debug "${ENV_FILE_TEMPLATE} value: \033[1m${line}\033[0m\n"
-          answer="$(selection_yn "Would you like to update the value of ${var_name} in the ${ENV_FILE} file to the value from the ${ENV_FILE_TEMPLATE} file?")"
+          var_value="$(echo "${line}" | cut -d'=' -f2-)"
+          answer="$(selection_yn "Update '${var_name}' in ${ENV_FILE} to '${var_value}' from the template?")"
           if [ "${answer}" = "yes" ]; then
             sed -i "/^${var_name}=/c\\${line}" "${ENV_FILE}"
           fi
@@ -90,7 +111,7 @@ log_info "\n=== Please review the changes in the ${ENV_FILE} file, if there is a
 log_info "\n=== Project has been updated correctly for ${NODE_TYPE} on ${NETWORK}"
 log_info "\n=== Start the compose project with the following command: "
 log_info "\n========================"
-log_warn "docker compose -f ${DEPLOYMENT_DIR}/docker-compose.yml up -d --force-recreate"
+log_warn "docker compose -f ${DEPLOYMENT_DIR}/docker-compose.yml up -d --pull --force-recreate"
 log_info "========================\n"
 
 exit 0
