@@ -1,4 +1,10 @@
 # Changelog
+**0.10.0+1**
+---
+
+CHANGES:
+* node: zkVerify version upgraded to `0.10.0-0.18.0-relay`
+
 **0.10.0**
 ---
 
