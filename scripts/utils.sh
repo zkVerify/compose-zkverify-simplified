@@ -177,6 +177,7 @@ check_required_variables() {
       "INTERNAL_NETWORK_SUBNET"
       "ACME_VHOST"
       "ACME_DEFAULT_EMAIL"
+      "ACME_CHALLENGE_TYPE"
       "NGINX_NET_IP_ADDRESS"
       "NODE_NET_IP_ADDRESS"
       "NODE_NET_P2P_PORT_WS"
@@ -405,5 +406,103 @@ set_acme_email_address() {
       log_red "\nInvalid email address: ${email}. Please try again..."
     fi
   done
+}
+
+# Function to select ACME challenge type
+set_acme_challenge_type() {
+  log_warn "\nSelect the ACME challenge type for Let's Encrypt certificate validation:"
+  log_info "\nHTTP-01: Validates domain ownership through HTTP. Requires port 80 to be accessible from the internet."
+  log_info "DNS-01: Validates domain ownership through DNS TXT records. Requires DNS provider API access."
+  
+  challenge_types="HTTP-01 DNS-01"
+  ACME_CHALLENGE_TYPE="$(selection "${challenge_types}")"
+  
+  sed -i "s/ACME_CHALLENGE_TYPE=.*/ACME_CHALLENGE_TYPE=${ACME_CHALLENGE_TYPE}/g" "${ENV_FILE}" || fn_die "\nError: could not set 'ACME_CHALLENGE_TYPE' variable value in ${ENV_FILE} file. Fix it before proceeding any further. Exiting...\n"
+  
+  if [ "${ACME_CHALLENGE_TYPE}" = "DNS-01" ]; then
+    set_acme_dns_provider
+  fi
+}
+
+# Function to set DNS provider for DNS-01 challenge
+set_acme_dns_provider() {
+  log_warn "\nSelect your DNS provider for DNS-01 challenge:"
+  log_info "\nSupported providers: cloudflare, route53, digitalocean, linode, ovh, gandi, namecheap, godaddy, and others."
+  log_info "For a complete list, see: https://github.com/acmesh-official/acme.sh/wiki/dnsapi"
+  
+  common_providers="cloudflare route53 digitalocean linode ovh gandi namecheap godaddy other"
+  dns_provider="$(selection "${common_providers}")"
+  
+  if [ "${dns_provider}" = "other" ]; then
+    log_warn "\nPlease enter your DNS provider name (must be supported by acme.sh):"
+    read -rp "#? " dns_provider
+    while [ -z "${dns_provider}" ]; do
+      log_warn "\nDNS provider cannot be empty. Try again..."
+      read -rp "#? " dns_provider
+    done
+  fi
+  
+  sed -i "s/ACME_DNS_PROVIDER=.*/ACME_DNS_PROVIDER=${dns_provider}/g" "${ENV_FILE}" || fn_die "\nError: could not set 'ACME_DNS_PROVIDER' variable value in ${ENV_FILE} file. Fix it before proceeding any further. Exiting...\n"
+  
+  set_acme_dns_credentials "${dns_provider}"
+}
+
+# Function to set DNS credentials for the selected provider
+set_acme_dns_credentials() {
+  local provider="${1}"
+  
+  log_warn "\nDNS credentials are required for the ${provider} provider."
+  log_info "\nPlease refer to the documentation for ${provider} DNS API credentials:"
+  
+  case "${provider}" in
+    "cloudflare")
+      log_info "Cloudflare: You need CF_Token (API Token) or CF_Key (Global API Key) + CF_Email"
+      log_info "For API Token: CF_Token=your_api_token"
+      log_info "For Global API Key: CF_Key=your_global_api_key CF_Email=your_email"
+      ;;
+    "route53")
+      log_info "AWS Route53: You need AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY"
+      log_info "Format: AWS_ACCESS_KEY_ID=your_access_key AWS_SECRET_ACCESS_KEY=your_secret_key"
+      ;;
+    "digitalocean")
+      log_info "DigitalOcean: You need DO_API_KEY"
+      log_info "Format: DO_API_KEY=your_api_key"
+      ;;
+    "linode")
+      log_info "Linode: You need LINODE_V4_API_KEY"
+      log_info "Format: LINODE_V4_API_KEY=your_api_key"
+      ;;
+    "ovh")
+      log_info "OVH: You need OVH_AK, OVH_AS, OVH_CK, OVH_END_POINT"
+      log_info "Format: OVH_AK=your_app_key OVH_AS=your_app_secret OVH_CK=your_consumer_key OVH_END_POINT=your_endpoint"
+      ;;
+    *)
+      log_info "Please check the acme.sh documentation for ${provider} specific requirements."
+      ;;
+  esac
+  
+  log_warn "\nPlease enter the DNS credentials as environment variables (space-separated):"
+  log_warn "Example: CF_Token=your_token or AWS_ACCESS_KEY_ID=key AWS_SECRET_ACCESS_KEY=secret"
+  read -rp "#? " dns_credentials
+  
+  while [ -z "${dns_credentials}" ]; do
+    log_warn "\nDNS credentials cannot be empty. Try again..."
+    read -rp "#? " dns_credentials
+  done
+  
+  # Validate that the credentials contain at least one = sign
+  if [[ ! "${dns_credentials}" =~ = ]]; then
+    log_red "\nInvalid format. Credentials should be in format: KEY=value"
+    set_acme_dns_credentials "${provider}"
+    return
+  fi
+  
+  confirm_credentials="$(selection_yn "\nDo you confirm these DNS credentials: ${dns_credentials}?")"
+  if [ "${confirm_credentials}" = "no" ]; then
+    set_acme_dns_credentials "${provider}"
+    return
+  fi
+  
+  sed -i "s/ACME_DNS_CREDENTIALS=.*/ACME_DNS_CREDENTIALS=\"${dns_credentials}\"/g" "${ENV_FILE}" || fn_die "\nError: could not set 'ACME_DNS_CREDENTIALS' variable value in ${ENV_FILE} file. Fix it before proceeding any further. Exiting...\n"
 }
 
