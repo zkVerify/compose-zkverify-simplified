@@ -21,9 +21,21 @@ log() {
   # shellcheck disable=SC2034
   local green=32
   # shellcheck disable=SC2034
-  local yellow=33
-
-  local usage="Usage: ${FUNCNAME[0]} style color \"message\"\nStyles: bold, italic, normal, light\nColors: black, red, green, yellow\nExample: log bold red \"Error: Something went wrong\""
+  loc    "dns_do")
+      log_info "\nConfiguring DigitalOcean DNS API"
+      log_warn "You need your DigitalOcean API Token"
+      log_warn "Get your API token from: https://cloud.digitalocean.com/account/api/tokens"
+      
+      log_warn "\nEnter your DigitalOcean API Token:"
+      read -rp "#? " do_api_key
+      while [ -z "${do_api_key}" ]; do
+        log_warn "\nDigitalOcean API Token cannot be empty. Try again..."
+        read -rp "#? " do_api_key
+      done
+      
+      # Format as JSON for acme-companion
+      dns_config="{\"DNS_API\": \"dns_do\", \"DO_API_KEY\": \"${do_api_key}\"}"
+      ;;  local usage="Usage: ${FUNCNAME[0]} style color \"message\"\nStyles: bold, italic, normal, light\nColors: black, red, green, yellow\nExample: log bold red \"Error: Something went wrong\""
   [ "$#" -lt 3 ] && {
     echo -e "\033[${bold};${red}m${FUNCNAME[0]} error: function requires three arguments.\n${usage}\033[0m"
     exit 1
@@ -482,27 +494,37 @@ configure_dns_credentials() {
   case "${dns_api}" in
     "dns_cf")
       log_info "\nConfiguring Cloudflare DNS API"
-      log_warn "You need your Cloudflare API Key and Email address"
-      log_warn "Get your API key from: https://dash.cloudflare.com/profile/api-tokens"
+      log_warn "You can use either an API Key or API Token (Token is recommended)"
+      log_warn "API Token: https://dash.cloudflare.com/profile/api-tokens"
+      log_warn "API Key: https://dash.cloudflare.com/profile/api-tokens"
       
-      log_warn "\nEnter your Cloudflare API Key:"
-      read -rp "#? " cf_key
-      while [ -z "${cf_key}" ]; do
-        log_warn "\nCloudflare API Key cannot be empty. Try again..."
+      auth_method="$(selection "API-Token API-Key")"
+      
+      if [ "${auth_method}" = "API-Token" ]; then
+        log_warn "\nEnter your Cloudflare API Token:"
+        log_warn "Make sure it has Zone:Edit and Zone:Read permissions for your domain"
+        read -rp "#? " cf_token
+        while [ -z "${cf_token}" ]; do
+          log_warn "\nCloudflare API Token cannot be empty. Try again..."
+          read -rp "#? " cf_token
+        done
+        dns_config="{\"DNS_API\": \"dns_cf\", \"CF_Token\": \"${cf_token}\"}"
+      else
+        log_warn "\nEnter your Cloudflare API Key:"
         read -rp "#? " cf_key
-      done
-      
-      log_warn "\nEnter your Cloudflare Email:"
-      read -rp "#? " cf_email
-      while [ -z "${cf_email}" ]; do
-        log_warn "\nCloudflare Email cannot be empty. Try again..."
+        while [ -z "${cf_key}" ]; do
+          log_warn "\nCloudflare API Key cannot be empty. Try again..."
+          read -rp "#? " cf_key
+        done
+        
+        log_warn "\nEnter your Cloudflare Email:"
         read -rp "#? " cf_email
-      done
-      
-      # Format as YAML for acme-companion (using literal block scalar style)
-      dns_config="DNS_API: ${dns_api}
-CF_Key: ${cf_key}
-CF_Email: ${cf_email}"
+        while [ -z "${cf_email}" ]; do
+          log_warn "\nCloudflare Email cannot be empty. Try again..."
+          read -rp "#? " cf_email
+        done
+        dns_config="{\"DNS_API\": \"dns_cf\", \"CF_Key\": \"${cf_key}\", \"CF_Email\": \"${cf_email}\"}"
+      fi
       ;;
       
     "dns_aws")
@@ -524,10 +546,8 @@ CF_Email: ${cf_email}"
         read -rp "#? " aws_secret_access_key
       done
       
-      # Format as YAML for acme-companion
-      dns_config="DNS_API: ${dns_api}
-AWS_ACCESS_KEY_ID: ${aws_access_key_id}
-AWS_SECRET_ACCESS_KEY: ${aws_secret_access_key}"
+      # Format as JSON for acme-companion
+      dns_config="{\"DNS_API\": \"dns_aws\", \"AWS_ACCESS_KEY_ID\": \"${aws_access_key_id}\", \"AWS_SECRET_ACCESS_KEY\": \"${aws_secret_access_key}\"}"
       ;;
       
     "dns_do")
@@ -552,32 +572,23 @@ DO_API_KEY: ${do_api_key}"
       log_warn "Please refer to the documentation for ${dns_api} at:"
       log_warn "https://github.com/acmesh-official/acme.sh/wiki/dnsapi"
       log_warn "\nFor most providers, you'll need API credentials."
-      log_warn "Please format your configuration as YAML:"
-      log_warn "Example format:"
-      log_warn "DNS_API: ${dns_api}"
-      log_warn "API_KEY: your_key"
-      log_warn "API_SECRET: your_secret"
+      log_warn "Please format your configuration as JSON:"
+      log_warn "Example: {\"DNS_API\": \"${dns_api}\", \"API_KEY\": \"your_key\", \"API_SECRET\": \"your_secret\"}"
       
-      log_warn "\nEnter your DNS API configuration in YAML format (press Ctrl+D when done):"
-      dns_config="DNS_API: ${dns_api}"
-      while IFS= read -r line; do
-        if [ -n "${line}" ]; then
-          dns_config="${dns_config}
-${line}"
-        fi
+      log_warn "\nEnter your DNS API configuration in JSON format:"
+      read -rp "#? " custom_config
+      while [ -z "${custom_config}" ]; do
+        log_warn "\nDNS API configuration cannot be empty. Try again..."
+        read -rp "#? " custom_config
       done
+      dns_config="${custom_config}"
       ;;
   esac
   
-  # Save DNS configuration to environment file using multi-line format
-  # Replace the existing ACMESH_DNS_API_CONFIG line with multi-line content
-  sed -i '/^ACMESH_DNS_API_CONFIG=/d' "${ENV_FILE}" || fn_die "\nError: could not remove existing ACMESH_DNS_API_CONFIG from ${ENV_FILE} file. Exiting...\n"
-  
-  # Write the YAML configuration using heredoc format for proper multi-line handling
-  cat >> "${ENV_FILE}" << EOF
-ACMESH_DNS_API_CONFIG="\
-${dns_config}"
-EOF
+  # Save DNS configuration to environment file
+  # Escape quotes for the environment file
+  escaped_config=$(echo "${dns_config}" | sed 's/"/\\"/g')
+  sed -i "s/ACMESH_DNS_API_CONFIG=.*/ACMESH_DNS_API_CONFIG=\"${escaped_config}\"/g" "${ENV_FILE}" || fn_die "\nError: could not set 'ACMESH_DNS_API_CONFIG' variable value in ${ENV_FILE} file. Fix it before proceeding any further. Exiting...\n"
   
   log_info "\nDNS provider configuration saved successfully."
 }

@@ -61,7 +61,6 @@ if ! [ -d "${DEPLOYMENT_DIR}" ]; then
     fi
   fi
 fi
-fi
 
 # shellcheck source=.env
 source "${ENV_FILE}" || fn_die "\nError: could not source ${ENV_FILE} file. Fix it before proceeding any further. Exiting...\n"
