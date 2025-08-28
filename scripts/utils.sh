@@ -184,6 +184,13 @@ check_required_variables() {
       "ZKV_CONF_LISTEN_ADDR"
       "ZKV_NODE_KEY"
     )
+    
+    # Only check DNS configuration if DNS-01 challenge is selected
+    if [ "${ACME_CHALLENGE_TYPE:-}" = "DNS-01" ]; then
+      TO_CHECK+=(
+        "ACMESH_DNS_API_CONFIG"
+      )
+    fi
   fi
 
   if [ "${NODE_TYPE}" = "validator-node" ]; then
@@ -409,100 +416,166 @@ set_acme_email_address() {
 }
 
 # Function to select ACME challenge type
-set_acme_challenge_type() {
+select_acme_challenge_type() {
   log_warn "\nSelect the ACME challenge type for Let's Encrypt certificate validation:"
-  log_info "\nHTTP-01: Validates domain ownership through HTTP. Requires port 80 to be accessible from the internet."
-  log_info "DNS-01: Validates domain ownership through DNS TXT records. Requires DNS provider API access."
-  
+  log_info "HTTP-01: Uses HTTP validation (requires port 80 accessible)"
+  log_info "DNS-01: Uses DNS validation (requires DNS provider API access)"
   challenge_types="HTTP-01 DNS-01"
   ACME_CHALLENGE_TYPE="$(selection "${challenge_types}")"
-  
   sed -i "s/ACME_CHALLENGE_TYPE=.*/ACME_CHALLENGE_TYPE=${ACME_CHALLENGE_TYPE}/g" "${ENV_FILE}" || fn_die "\nError: could not set 'ACME_CHALLENGE_TYPE' variable value in ${ENV_FILE} file. Fix it before proceeding any further. Exiting...\n"
-  
-  if [ "${ACME_CHALLENGE_TYPE}" = "DNS-01" ]; then
-    set_acme_dns_provider
-  fi
+  export ACME_CHALLENGE_TYPE
 }
 
-# Function to set DNS provider for DNS-01 challenge
-set_acme_dns_provider() {
+# Function to configure DNS provider for DNS-01 challenge
+configure_dns_provider() {
   log_warn "\nSelect your DNS provider for DNS-01 challenge:"
-  log_info "\nSupported providers: cloudflare, route53, digitalocean, linode, ovh, gandi, namecheap, godaddy, and others."
-  log_info "For a complete list, see: https://github.com/acmesh-official/acme.sh/wiki/dnsapi"
+  log_info "Common providers: Cloudflare, Route53, DigitalOcean, etc."
+  log_info "For full list see: https://github.com/acmesh-official/acme.sh/wiki/dnsapi"
   
-  common_providers="cloudflare route53 digitalocean linode ovh gandi namecheap godaddy other"
-  dns_provider="$(selection "${common_providers}")"
+  # Common DNS providers with their acme.sh DNS API names
+  dns_providers="dns_cf dns_aws dns_do dns_gd dns_he dns_ovh dns_linode dns_ns1 other"
+  provider_names="Cloudflare Route53/AWS DigitalOcean GoDaddy Hurricane_Electric OVH Linode NS1 Other"
   
-  if [ "${dns_provider}" = "other" ]; then
-    log_warn "\nPlease enter your DNS provider name (must be supported by acme.sh):"
-    read -rp "#? " dns_provider
-    while [ -z "${dns_provider}" ]; do
-      log_warn "\nDNS provider cannot be empty. Try again..."
-      read -rp "#? " dns_provider
+  log_warn "\nSelect your DNS provider:"
+  for i in $(seq 1 $(echo ${provider_names} | wc -w)); do
+    provider_display=$(echo ${provider_names} | cut -d' ' -f${i})
+    provider_api=$(echo ${dns_providers} | cut -d' ' -f${i})
+    echo "${i}) ${provider_display} (${provider_api})"
+  done
+  echo "$(echo ${provider_names} | wc -w | awk '{print $1+1}')) quit"
+  
+  read -rp "Enter selection: " selection_num
+  
+  if [ "${selection_num}" = "$(echo ${provider_names} | wc -w | awk '{print $1+1}')" ]; then
+    fn_die "Exiting" 234
+  fi
+  
+  if [ "${selection_num}" -lt 1 ] || [ "${selection_num}" -gt $(echo ${provider_names} | wc -w) ]; then
+    log_warn "\nInvalid selection. Please try again."
+    configure_dns_provider
+    return
+  fi
+  
+  DNS_API=$(echo ${dns_providers} | cut -d' ' -f${selection_num})
+  provider_display=$(echo ${provider_names} | cut -d' ' -f${selection_num})
+  
+  if [ "${DNS_API}" = "other" ]; then
+    log_warn "\nPlease enter the acme.sh DNS API name (e.g., dns_cf, dns_aws):"
+    read -rp "#? " DNS_API
+    while [ -z "${DNS_API}" ]; do
+      log_warn "\nDNS API name cannot be empty. Try again..."
+      read -rp "#? " DNS_API
     done
   fi
   
-  sed -i "s/ACME_DNS_PROVIDER=.*/ACME_DNS_PROVIDER=${dns_provider}/g" "${ENV_FILE}" || fn_die "\nError: could not set 'ACME_DNS_PROVIDER' variable value in ${ENV_FILE} file. Fix it before proceeding any further. Exiting...\n"
+  log_info "\nYou selected: ${provider_display} (${DNS_API})"
   
-  set_acme_dns_credentials "${dns_provider}"
+  # Configure provider-specific credentials
+  configure_dns_credentials "${DNS_API}"
 }
 
-# Function to set DNS credentials for the selected provider
-set_acme_dns_credentials() {
-  local provider="${1}"
+# Function to configure DNS provider credentials
+configure_dns_credentials() {
+  local dns_api="${1}"
+  local dns_config=""
   
-  log_warn "\nDNS credentials are required for the ${provider} provider."
-  log_info "\nPlease refer to the documentation for ${provider} DNS API credentials:"
-  
-  case "${provider}" in
-    "cloudflare")
-      log_info "Cloudflare: You need CF_Token (API Token) or CF_Key (Global API Key) + CF_Email"
-      log_info "For API Token: CF_Token=your_api_token"
-      log_info "For Global API Key: CF_Key=your_global_api_key CF_Email=your_email"
+  case "${dns_api}" in
+    "dns_cf")
+      log_info "\nConfiguring Cloudflare DNS API"
+      log_warn "You can use either an API Key or API Token (Token is recommended)"
+      log_warn "API Token: https://dash.cloudflare.com/profile/api-tokens"
+      log_warn "API Key: https://dash.cloudflare.com/profile/api-tokens"
+      
+      auth_method="$(selection "API-Token API-Key")"
+      
+      if [ "${auth_method}" = "API-Token" ]; then
+        log_warn "\nEnter your Cloudflare API Token:"
+        log_warn "Make sure it has Zone:Edit and Zone:Read permissions for your domain"
+        read -rp "#? " cf_token
+        while [ -z "${cf_token}" ]; do
+          log_warn "\nCloudflare API Token cannot be empty. Try again..."
+          read -rp "#? " cf_token
+        done
+        dns_config="{\"DNS_API\": \"dns_cf\", \"CF_Token\": \"${cf_token}\"}"
+      else
+        log_warn "\nEnter your Cloudflare API Key:"
+        read -rp "#? " cf_key
+        while [ -z "${cf_key}" ]; do
+          log_warn "\nCloudflare API Key cannot be empty. Try again..."
+          read -rp "#? " cf_key
+        done
+        
+        log_warn "\nEnter your Cloudflare Email:"
+        read -rp "#? " cf_email
+        while [ -z "${cf_email}" ]; do
+          log_warn "\nCloudflare Email cannot be empty. Try again..."
+          read -rp "#? " cf_email
+        done
+        dns_config="{\"DNS_API\": \"dns_cf\", \"CF_Key\": \"${cf_key}\", \"CF_Email\": \"${cf_email}\"}"
+      fi
       ;;
-    "route53")
-      log_info "AWS Route53: You need AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY"
-      log_info "Format: AWS_ACCESS_KEY_ID=your_access_key AWS_SECRET_ACCESS_KEY=your_secret_key"
+      
+    "dns_aws")
+      log_info "\nConfiguring AWS Route53 DNS API"
+      log_warn "You need your AWS Access Key ID and Secret Access Key"
+      log_warn "Make sure your AWS credentials have Route53 permissions"
+      
+      log_warn "\nEnter your AWS Access Key ID:"
+      read -rp "#? " aws_access_key_id
+      while [ -z "${aws_access_key_id}" ]; do
+        log_warn "\nAWS Access Key ID cannot be empty. Try again..."
+        read -rp "#? " aws_access_key_id
+      done
+      
+      log_warn "\nEnter your AWS Secret Access Key:"
+      read -rp "#? " aws_secret_access_key
+      while [ -z "${aws_secret_access_key}" ]; do
+        log_warn "\nAWS Secret Access Key cannot be empty. Try again..."
+        read -rp "#? " aws_secret_access_key
+      done
+      
+      # Format as JSON for acme-companion
+      dns_config="{\"DNS_API\": \"dns_aws\", \"AWS_ACCESS_KEY_ID\": \"${aws_access_key_id}\", \"AWS_SECRET_ACCESS_KEY\": \"${aws_secret_access_key}\"}"
       ;;
-    "digitalocean")
-      log_info "DigitalOcean: You need DO_API_KEY"
-      log_info "Format: DO_API_KEY=your_api_key"
+      
+    "dns_do")
+      log_info "\nConfiguring DigitalOcean DNS API"
+      log_warn "You need your DigitalOcean API Token"
+      log_warn "Get your API token from: https://cloud.digitalocean.com/account/api/tokens"
+      
+      log_warn "\nEnter your DigitalOcean API Token:"
+      read -rp "#? " do_api_key
+      while [ -z "${do_api_key}" ]; do
+        log_warn "\nDigitalOcean API Token cannot be empty. Try again..."
+        read -rp "#? " do_api_key
+      done
+      
+      # Format as JSON for acme-companion
+      dns_config="{\"DNS_API\": \"dns_do\", \"DO_API_KEY\": \"${do_api_key}\"}"
       ;;
-    "linode")
-      log_info "Linode: You need LINODE_V4_API_KEY"
-      log_info "Format: LINODE_V4_API_KEY=your_api_key"
-      ;;
-    "ovh")
-      log_info "OVH: You need OVH_AK, OVH_AS, OVH_CK, OVH_END_POINT"
-      log_info "Format: OVH_AK=your_app_key OVH_AS=your_app_secret OVH_CK=your_consumer_key OVH_END_POINT=your_endpoint"
-      ;;
+      
     *)
-      log_info "Please check the acme.sh documentation for ${provider} specific requirements."
+      log_info "\nConfiguring ${dns_api} DNS API"
+      log_warn "Please refer to the documentation for ${dns_api} at:"
+      log_warn "https://github.com/acmesh-official/acme.sh/wiki/dnsapi"
+      log_warn "\nFor most providers, you'll need API credentials."
+      log_warn "Please format your configuration as JSON:"
+      log_warn "Example: {\"DNS_API\": \"${dns_api}\", \"API_KEY\": \"your_key\", \"API_SECRET\": \"your_secret\"}"
+      
+      log_warn "\nEnter your DNS API configuration in JSON format:"
+      read -rp "#? " custom_config
+      while [ -z "${custom_config}" ]; do
+        log_warn "\nDNS API configuration cannot be empty. Try again..."
+        read -rp "#? " custom_config
+      done
+      dns_config="${custom_config}"
       ;;
   esac
   
-  log_warn "\nPlease enter the DNS credentials as environment variables (space-separated):"
-  log_warn "Example: CF_Token=your_token or AWS_ACCESS_KEY_ID=key AWS_SECRET_ACCESS_KEY=secret"
-  read -rp "#? " dns_credentials
+  # Save DNS configuration to environment file
+  # Double escape quotes for proper .env file format
+  escaped_config=$(echo "${dns_config}" | sed 's/"/\\"/g')
+  sed -i "s|ACMESH_DNS_API_CONFIG=.*|ACMESH_DNS_API_CONFIG=\"${escaped_config}\"|g" "${ENV_FILE}" || fn_die "\nError: could not set 'ACMESH_DNS_API_CONFIG' variable value in ${ENV_FILE} file. Fix it before proceeding any further. Exiting...\n"
   
-  while [ -z "${dns_credentials}" ]; do
-    log_warn "\nDNS credentials cannot be empty. Try again..."
-    read -rp "#? " dns_credentials
-  done
-  
-  # Validate that the credentials contain at least one = sign
-  if [[ ! "${dns_credentials}" =~ = ]]; then
-    log_red "\nInvalid format. Credentials should be in format: KEY=value"
-    set_acme_dns_credentials "${provider}"
-    return
-  fi
-  
-  confirm_credentials="$(selection_yn "\nDo you confirm these DNS credentials: ${dns_credentials}?")"
-  if [ "${confirm_credentials}" = "no" ]; then
-    set_acme_dns_credentials "${provider}"
-    return
-  fi
-  
-  sed -i "s/ACME_DNS_CREDENTIALS=.*/ACME_DNS_CREDENTIALS=\"${dns_credentials}\"/g" "${ENV_FILE}" || fn_die "\nError: could not set 'ACME_DNS_CREDENTIALS' variable value in ${ENV_FILE} file. Fix it before proceeding any further. Exiting...\n"
+  log_info "\nDNS provider configuration saved successfully."
 }
-

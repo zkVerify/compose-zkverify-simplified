@@ -81,10 +81,8 @@ services:
       - nginx-proxy
     environment:
       - "DEFAULT_EMAIL=${ACME_DEFAULT_EMAIL?err_unset}"
-      - "ACME_CA_URI=${ACME_CA_URI:-https://acme-v02.api.letsencrypt.org/directory}"
       - "ACME_CHALLENGE=${ACME_CHALLENGE_TYPE?err_unset}"
-      - "DNS_PROVIDER=${ACME_DNS_PROVIDER:-}"
-      - "DNS_CREDENTIALS=${ACME_DNS_CREDENTIALS:-}"
+      - ACMESH_DNS_API_CONFIG=${ACMESH_DNS_API_CONFIG:-}
     volumes_from:
       - nginx-proxy
     volumes:
