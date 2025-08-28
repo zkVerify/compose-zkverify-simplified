@@ -48,7 +48,12 @@ if ! [ -d "${DEPLOYMENT_DIR}" ]; then
     if [ "${NODE_TYPE}" = "boot-node" ]; then
       create_node_key
       set_acme_vhost
+      set_acme_challenge_type
       set_acme_email_address
+      select_acme_challenge_type
+      if [ "${ACME_CHALLENGE_TYPE}" = "DNS-01" ]; then
+        configure_dns_provider
+      fi
     fi
 
     if [ "${NODE_TYPE}" = "validator-node" ]; then
