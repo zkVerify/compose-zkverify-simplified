@@ -21,21 +21,9 @@ log() {
   # shellcheck disable=SC2034
   local green=32
   # shellcheck disable=SC2034
-  loc    "dns_do")
-      log_info "\nConfiguring DigitalOcean DNS API"
-      log_warn "You need your DigitalOcean API Token"
-      log_warn "Get your API token from: https://cloud.digitalocean.com/account/api/tokens"
-      
-      log_warn "\nEnter your DigitalOcean API Token:"
-      read -rp "#? " do_api_key
-      while [ -z "${do_api_key}" ]; do
-        log_warn "\nDigitalOcean API Token cannot be empty. Try again..."
-        read -rp "#? " do_api_key
-      done
-      
-      # Format as JSON for acme-companion
-      dns_config="{\"DNS_API\": \"dns_do\", \"DO_API_KEY\": \"${do_api_key}\"}"
-      ;;  local usage="Usage: ${FUNCNAME[0]} style color \"message\"\nStyles: bold, italic, normal, light\nColors: black, red, green, yellow\nExample: log bold red \"Error: Something went wrong\""
+  local yellow=33
+
+  local usage="Usage: ${FUNCNAME[0]} style color \"message\"\nStyles: bold, italic, normal, light\nColors: black, red, green, yellow\nExample: log bold red \"Error: Something went wrong\""
   [ "$#" -lt 3 ] && {
     echo -e "\033[${bold};${red}m${FUNCNAME[0]} error: function requires three arguments.\n${usage}\033[0m"
     exit 1
@@ -562,9 +550,8 @@ configure_dns_credentials() {
         read -rp "#? " do_api_key
       done
       
-      # Format as YAML for acme-companion
-      dns_config="DNS_API: ${dns_api}
-DO_API_KEY: ${do_api_key}"
+      # Format as JSON for acme-companion
+      dns_config="{\"DNS_API\": \"dns_do\", \"DO_API_KEY\": \"${do_api_key}\"}"
       ;;
       
     *)
@@ -592,4 +579,3 @@ DO_API_KEY: ${do_api_key}"
   
   log_info "\nDNS provider configuration saved successfully."
 }
-
