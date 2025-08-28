@@ -573,9 +573,9 @@ configure_dns_credentials() {
   esac
   
   # Save DNS configuration to environment file
-  # Escape quotes for the environment file
+  # Double escape quotes for proper .env file format
   escaped_config=$(echo "${dns_config}" | sed 's/"/\\"/g')
-  sed -i "s/ACMESH_DNS_API_CONFIG=.*/ACMESH_DNS_API_CONFIG=\"${escaped_config}\"/g" "${ENV_FILE}" || fn_die "\nError: could not set 'ACMESH_DNS_API_CONFIG' variable value in ${ENV_FILE} file. Fix it before proceeding any further. Exiting...\n"
+  sed -i "s|ACMESH_DNS_API_CONFIG=.*|ACMESH_DNS_API_CONFIG=\"${escaped_config}\"|g" "${ENV_FILE}" || fn_die "\nError: could not set 'ACMESH_DNS_API_CONFIG' variable value in ${ENV_FILE} file. Fix it before proceeding any further. Exiting...\n"
   
   log_info "\nDNS provider configuration saved successfully."
 }
