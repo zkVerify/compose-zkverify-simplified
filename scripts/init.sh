@@ -49,6 +49,10 @@ if ! [ -d "${DEPLOYMENT_DIR}" ]; then
       create_node_key
       set_acme_vhost
       set_acme_email_address
+      select_acme_challenge_type
+      if [ "${ACME_CHALLENGE_TYPE}" = "DNS-01" ]; then
+        configure_dns_provider
+      fi
     fi
 
     if [ "${NODE_TYPE}" = "validator-node" ]; then
@@ -56,6 +60,7 @@ if ! [ -d "${DEPLOYMENT_DIR}" ]; then
       create_secret_phrase
     fi
   fi
+fi
 fi
 
 # shellcheck source=.env
