@@ -283,7 +283,7 @@ create_secret_phrase() {
       fn_die "Secret phrase import aborted; please run again the init.sh script. Exiting ...\n"
     fi
   else
-    if ! secret_json="$(docker run --rm --entrypoint zkv-relay horizenlabs/zkverify:"${NODE_VERSION}" key generate --output-type json)"; then
+    if ! secret_json="$(docker run --rm --entrypoint zkv-relay horizenlabs/zkverify:"${NODE_VERSION}" key generate -w24 --output-type json)"; then
       fn_die "\nError: could not generate secret phrase. Fix it before proceeding any further. Exiting...\n"
     fi
     if [ -z "${secret_json}" ]; then

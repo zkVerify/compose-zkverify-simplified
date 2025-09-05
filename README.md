@@ -34,7 +34,7 @@ Run the [init.sh](./scripts/init.sh) script and follow the instructions in order
 
 The script will generate the required deployment files under the [deployments](deployments) directory.
 
-## Optional: ZKV Node Data Snapshots
+### Optional: ZKV Node Data Snapshots
 
 To reduce the time required for a node's startup, **daily snapshots of chain data** are available [here](https://bootstraps.zkverify.io).
 
@@ -44,6 +44,39 @@ Snapshots are available in two forms:
 - **Archive node snapshot**
 
 Each snapshot is a **.tar.gz** archive containing the **db** directory, intended to replace the **db** directory generated during the initial node run.
+
+### Optional: ZKV Node Secrets Injection
+
+During the initial deployment **depending on the node type**, if prompted, the script will generate and store **ZKV_NODE_KEY** and **ZKV_SECRET_PHRASE** values in the `.env` file.
+
+Alternatively, these secrets can be injected at runtime using a custom container entrypoint script to avoid keeping them in plaintext on disk.
+
+Use the following steps to implement this approach:
+
+1. Delete values of **ZKV_NODE_KEY** and **ZKV_SECRET_PHRASE** under the `deployments/${NODE_TYPE}/${NETWORK}/.env`
+    ```bazaar
+    ZKV_NODE_KEY=""
+    ZKV_SECRET_PHRASE=""
+    ```
+2. Create **entrypoint_secrets.sh** file under `deployments/${NODE_TYPE}/${NETWORK}/` directory. For example:
+    ```
+    #!/usr/bin/env sh
+    set -eu
+    
+    # TODO: Implement logic to inject secrets into the environment
+   
+    # Run the application entrypoint
+    echo "=== 🚀 Starting the application entrypoint now..."
+    exec /app/entrypoint.sh "$@"
+    ```
+3. Modify `deployments/${NODE_TYPE}/${NETWORK}/docker-compose.yml` file to mount and execute **custom entrypoint** script
+    ```
+    volumes:
+      - "node-data:/data:rw"
+      - "./entrypoint_secrets.sh:/app/entrypoint_secrets.sh:rw"
+    entrypoint: ["/app/entrypoint_secrets.sh"]
+    ```
+4. Start compose project using the command provided in the end of [init.sh](./scripts/init.sh) script execution.
 
 ### Update
 
