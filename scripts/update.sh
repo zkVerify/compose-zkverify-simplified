@@ -32,6 +32,12 @@ auto_update_vars=(
 
 conditional_update_vars=()
 
+optional_do_not_remove_vars=(
+  "ZKV_CONF_RPC_MAX_BATCH_REQUEST_LEN"
+  "ZKV_CONF_POOL_LIMIT"
+  "ZKV_CONF_POOL_KBYTES"
+)
+
 # Read the .env.template file line by line, skip blank lines and comments, store each of the other lines in an array
 log_info "\n=== Reading ${ENV_FILE_TEMPLATE} file"
 while IFS= read -r line; do
@@ -54,8 +60,21 @@ done
 while IFS= read -r line; do
   [[ -z "${line}" || "${line:0:1}" == "#" ]] && continue
   env_var_name="$(cut -d'=' -f1 <<< "${line}")"
+
+  # Skip vars that are in the do-not-remove list
+  if printf '%s\n' "${optional_do_not_remove_vars[@]}" | grep -q -P "^${env_var_name}$"; then
+    log_info "\n========================"
+#    log_info "\033[1;36mPreserving optional variable '${env_var_name}'"
+    log_blue "Preserving optional variable '${env_var_name}'"
+    log_info "========================\n"
+    continue
+  fi
+
+  # Remove vars not in template
   if ! printf '%s\n' "${template_var_names[@]}" | grep -q -P "^${env_var_name}$"; then
+    log_info "\n========================"
     log_warn "Removing obsolete variable '${env_var_name}' from ${ENV_FILE}"
+    log_info "\n========================"
     sed -i "/^${env_var_name}=.*/d" "${ENV_FILE}"
   fi
 done < <(grep -v '^#' "${ENV_FILE}")

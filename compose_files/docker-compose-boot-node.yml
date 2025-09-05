@@ -57,7 +57,6 @@ services:
     environment:
       - DEBUG=true
       - TRUST_DOWNSTREAM_PROXY=true
-      - "RESOLVERS=127.0.0.11 8.8.8.8 valid=300s timeout=5s"
     networks:
       node-network:
         ipv4_address: ${NGINX_NET_IP_ADDRESS?err_unset}

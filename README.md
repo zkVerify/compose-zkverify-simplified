@@ -1,6 +1,6 @@
 # Compose zkverify simplified
 
-This repository contains all the resources for deploying a zkverify rpc, validator, or boot node, on testnet.
+This repository contains resources for deploying zkVerify nodes, including RPC, validator, and boot nodes on both the **testnet** and **mainnet**.
 
 
 ## Project overview
@@ -11,7 +11,7 @@ There are three types of nodes that can be deployed:
 2. validator
 3. boot
 
-When using any of the scripts provided in this repository, it will be requested to select **node type** and the **network** to run on(testnet).
+When using any of the scripts provided in this repository, it will be requested to select **node type** and the **network** to run on.
 
 ---
 

@@ -43,6 +43,8 @@ if ! [ -d "${DEPLOYMENT_DIR}" ]; then
       set_up_rpc_methods_env_var
       set_up_pruning_env_var
       set_up_rpc_max_batch_request_len
+      set_up_pool_limit
+      set_up_pool_kbytes
     fi
 
     if [ "${NODE_TYPE}" = "boot-node" ]; then

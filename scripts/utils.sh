@@ -22,6 +22,9 @@ log() {
   local green=32
   # shellcheck disable=SC2034
   local yellow=33
+  # shellcheck disable=SC2034
+  local blue=36
+
 
   local usage="Usage: ${FUNCNAME[0]} style color \"message\"\nStyles: bold, italic, normal, light\nColors: black, red, green, yellow\nExample: log bold red \"Error: Something went wrong\""
   [ "$#" -lt 3 ] && {
@@ -39,7 +42,7 @@ log() {
     exit 1
   fi
   # validate color is in black, red, green
-  if [[ ! "${color}" =~ ^(black|red|green|yellow)$ ]]; then
+  if [[ ! "${color}" =~ ^(black|red|green|yellow|blue)$ ]]; then
     message="Error: Invalid color. Must be one of black, red, green or yellow."
     echo -e "\033[${bold};${red}m${message}\033[0m"
     exit 1
@@ -66,6 +69,13 @@ log_warn() {
   [ "${1:-}" = "usage" ] && log_debug "${usage}" && return
   [ "$#" -ne 1 ] && fn_die "\n${FUNCNAME[0]} error: function requires exactly one argument.\n\n${usage}"
   log normal yellow "${1}" >&2
+}
+
+log_blue() {
+  local usage="Log a message in blue - Usage: ${FUNCNAME[0]} {message}"
+  [ "${1:-}" = "usage" ] && log_debug "${usage}" && return
+  [ "$#" -ne 1 ] && fn_die "\n${FUNCNAME[0]} error: function requires exactly one argument.\n\n${usage}"
+  log bold blue "${1}" >&2
 }
 
 log_red() {
@@ -217,7 +227,7 @@ select_node_type() {
 
 select_network() {
   log_warn "\nWhat 'network' would you like to use: "
-  NETWORKS="testnet"
+  NETWORKS="testnet mainnet"
   NETWORK="$(selection "${NETWORKS}")"
   export NETWORK
 }
@@ -228,7 +238,7 @@ set_deployment_dir() {
 }
 
 set_env_file() {
-  ENV_FILE_TEMPLATE="${ROOT_DIR}/env/.env.${NODE_TYPE}.${NETWORK}.template"
+  ENV_FILE_TEMPLATE="${ROOT_DIR}/env/${NETWORK}/.env.${NODE_TYPE}.template"
   ENV_FILE="${DEPLOYMENT_DIR}/.env"
   export ENV_FILE_TEMPLATE
   export ENV_FILE
@@ -331,15 +341,58 @@ set_up_pruning_env_var() {
 }
 
 set_up_rpc_max_batch_request_len() {
-  max_batch_request_len_answer="$(selection_yn "\nDo you want to set a limit for the max length per RPC batch request")"
+  max_batch_request_len_answer="$(selection_yn "\nDo you want to set a maximum length for RPC batch requests? (default: no limit)")"
   if [ "${max_batch_request_len_answer}" = "yes" ]; then
     log_warn "\nPlease specify the maximum number of requests allowed in a single RPC batch (must be a whole number): "
     read -rp "#? " max_batch_request_len_value
-    while [ -z "${max_batch_request_len_value}" ]; do
-      log_warn "\nMaximum number of requests allowed in a single RPC batch value cannot be empty. Try again..."
+    while [[ -z "${max_batch_request_len_value}" || ! "${max_batch_request_len_value}" =~ ^[1-9][0-9]*$ ]]; do
+      if [[ -z "${max_batch_request_len_value}" ]]; then
+        log_warn "\nMaximum number of requests allowed in a single RPC batch value cannot be empty. Try again..."
+      else
+        log_warn "\nInvalid input. Please enter a whole number without leading zeros (e.g., 0, 1, 25000)..."
+      fi
       read -rp "#? " max_batch_request_len_value
     done
     echo "ZKV_CONF_RPC_MAX_BATCH_REQUEST_LEN=${max_batch_request_len_value}" >> "${ENV_FILE}" || fn_die "\nError: could not set a limit for the max length per RPC batch request variable in ${ENV_FILE} file. Fix it before proceeding any further. Exiting...\n"
+  fi
+}
+
+set_up_pool_limit() {
+  pool_limit_answer="$(selection_yn "\nDo you want to set custom value for the maximum number of transactions in the transaction pool? (defaults to 8192)")"
+  if [ "${pool_limit_answer}" = "yes" ]; then
+    log_warn "\nPlease specify the maximum number of transactions (must be a whole number): "
+    read -rp "#? " pool_limit_answer
+    while [[ -z "${pool_limit_answer}" || ! "${pool_limit_answer}" =~ ^[1-9][0-9]*$ ]]; do
+      if [[ -z "${pool_limit_answer}" ]]; then
+        log_warn "\nMaximum number of transactions value cannot be empty. Try again..."
+      else
+        log_warn "\nInvalid input. Please enter a whole number without leading zeros (e.g., 0, 1, 25000)..."
+      fi
+      read -rp "#? " pool_limit_answer
+    done
+    echo "ZKV_CONF_POOL_LIMIT=${pool_limit_answer}" >> "${ENV_FILE}" || fn_die "\nError: could not set the maximum number of transactions in the transaction pool variable in ${ENV_FILE} file. Fix it before proceeding any further. Exiting...\n"
+  fi
+}
+
+set_up_pool_kbytes() {
+  pool_kbytes_answer="$(selection_yn "\nDo you want to set a custom value for the maximum total size of all transactions in the pool in kilobytes? (defaults to 20480)")"
+
+  if [ "${pool_kbytes_answer}" = "yes" ]; then
+    log_warn "\nPlease specify the maximum transaction pool size in kilobytes (must be a whole number, e.g., 1024, 20480): "
+    read -rp "#? " pool_kbytes_answer
+
+    # Sanity check: must be a non-zero whole number
+    while [[ -z "${pool_kbytes_answer}" || ! "${pool_kbytes_answer}" =~ ^[1-9][0-9]*$ ]]; do
+      if [[ -z "${pool_kbytes_answer}" ]]; then
+        log_warn "\nMaximum pool size value cannot be empty. Try again..."
+      else
+        log_warn "\nInvalid input. Enter a whole number greater than 0, in kilobytes (e.g., 1024, 20480)..."
+      fi
+      read -rp "#? " pool_kbytes_answer
+    done
+
+    echo "ZKV_CONF_POOL_KBYTES=${pool_kbytes_answer}" >> "${ENV_FILE}" \
+      || fn_die "\nError: could not set the maximum transaction pool size (in kB) in ${ENV_FILE}. Fix it before proceeding. Exiting...\n"
   fi
 }
 
