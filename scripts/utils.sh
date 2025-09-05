@@ -210,6 +210,7 @@ check_required_variables() {
       "ZKV_CONF_RPC_EXTERNAL"
       "ZKV_CONF_RPC_METHODS"
       "ZKV_CONF_PRUNING"
+      "ZKV_CONF_RPC_MAX_CONNECTIONS"
     )
   fi
 
