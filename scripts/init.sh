@@ -14,7 +14,6 @@ set_deployment_dir
 
 set_env_file
 
-
 if [ -d "${DEPLOYMENT_DIR}" ]; then
   overwrite_deployment_dir_answer="$(selection_yn "\nDeployment directory already exists. Do you want to overwrite it?")"
   if [ "${overwrite_deployment_dir_answer}" = "yes" ]; then

@@ -240,6 +240,9 @@ set_deployment_dir() {
 
 set_env_file() {
   ENV_FILE_TEMPLATE="${ROOT_DIR}/env/${NETWORK}/.env.${NODE_TYPE}.template"
+  if [ ! -s "${ENV_FILE_TEMPLATE}" ]; then
+    fn_die "\nError: Environment template file '${ENV_FILE_TEMPLATE}' is missing or empty. Exiting ..."
+  fi
   ENV_FILE="${DEPLOYMENT_DIR}/.env"
   export ENV_FILE_TEMPLATE
   export ENV_FILE
@@ -400,7 +403,7 @@ set_up_pool_kbytes() {
 # Function to set and check if the FQDN is valid
 set_acme_vhost() {
   while true; do
-    log_warn "\nPlease type or paste a valid FQDN value for Let's Encrypt to use for 'p2p/wss' support setup.\nIt has to satisfy the following requirements: https://github.com/nginx-proxy/acme-companion/blob/904b5e38b17183c7c40e194869faad08b09fa9dc/README.md#http-01-challenge-requirements"
+    log_warn "\nPlease type or paste a valid FQDN value for Let's Encrypt to use for 'p2p/wss' support setup.\nIt has to satisfy the following requirements: https://github.com/nginx-proxy/acme-companion/blob/main/README.md#http-01-challenge-requirements"
     read -rp "#? " fqdn
 
     # Check if the input is empty
