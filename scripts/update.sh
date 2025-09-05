@@ -64,7 +64,6 @@ while IFS= read -r line; do
   # Skip vars that are in the do-not-remove list
   if printf '%s\n' "${optional_do_not_remove_vars[@]}" | grep -q -P "^${env_var_name}$"; then
     log_info "\n========================"
-#    log_info "\033[1;36mPreserving optional variable '${env_var_name}'"
     log_blue "Preserving optional variable '${env_var_name}'"
     log_info "========================\n"
     continue

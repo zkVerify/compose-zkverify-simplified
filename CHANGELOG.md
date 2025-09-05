@@ -1,4 +1,13 @@
 # Changelog
+**0.10.0+2**
+---
+
+CHANGES:
+* node: zkVerify version set to `latest-relay`
+* general: support for mainnet added
+* automation: added support for setting optional --pool-limit and --pool-kbytes parameters for RPC node
+* automation: added functionality to preserve optional variables during upgrade process
+
 **0.10.0+1**
 ---
 
