@@ -33,6 +33,7 @@ auto_update_vars=(
 conditional_update_vars=()
 
 optional_do_not_remove_vars=(
+  "ZKV_CONF_RPC_MAX_CONNECTIONS"
   "ZKV_CONF_RPC_MAX_BATCH_REQUEST_LEN"
   "ZKV_CONF_POOL_LIMIT"
   "ZKV_CONF_POOL_KBYTES"
@@ -129,7 +130,7 @@ log_info "\n=== Please review the changes in the ${ENV_FILE} file, if there is a
 log_info "\n=== Project has been updated correctly for ${NODE_TYPE} on ${NETWORK}"
 log_info "\n=== Start the compose project with the following command: "
 log_info "\n========================"
-log_warn "docker compose -f ${DEPLOYMENT_DIR}/docker-compose.yml up -d --pull --force-recreate"
+log_warn "docker compose -f ${DEPLOYMENT_DIR}/docker-compose.yml up -d --pull=always --force-recreate"
 log_info "========================\n"
 
 exit 0

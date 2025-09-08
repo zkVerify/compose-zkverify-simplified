@@ -210,7 +210,6 @@ check_required_variables() {
       "ZKV_CONF_RPC_EXTERNAL"
       "ZKV_CONF_RPC_METHODS"
       "ZKV_CONF_PRUNING"
-      "ZKV_CONF_RPC_MAX_CONNECTIONS"
     )
   fi
 
@@ -341,6 +340,23 @@ set_up_pruning_env_var() {
       read -rp "#? " pruning_value
     done
     sed -i "s/ZKV_CONF_PRUNING=.*/ZKV_CONF_PRUNING=${pruning_value}/g" "${ENV_FILE}" || fn_die "\nError: could not set pruning configuration variable in ${ENV_FILE} file. Fix it before proceeding any further. Exiting...\n"
+  fi
+}
+
+set_up_rpc_max_connections() {
+  max_connections_answer="$(selection_yn "\nDo you want to set a maximum number of RPC connections? (default: 100)")"
+  if [ "${max_connections_answer}" = "yes" ]; then
+    log_warn "\nPlease specify the maximum number of RPC connections allowed (must be a whole number): "
+    read -rp "#? " max_connections_value
+    while [[ -z "${max_connections_value}" || ! "${max_connections_value}" =~ ^[1-9][0-9]*$ ]]; do
+      if [[ -z "${max_connections_value}" ]]; then
+        log_warn "\nMaximum number of RPC connections cannot be empty. Try again..."
+      else
+        log_warn "\nInvalid input. Please enter a whole number without leading zeros (e.g., 1, 50, 1000)..."
+      fi
+      read -rp "#? " max_connections_value
+    done
+    echo "ZKV_CONF_RPC_MAX_CONNECTIONS=${max_connections_value}" >> "${ENV_FILE}" || fn_die "\nError: could not set the maximum RPC connections variable in ${ENV_FILE}. Fix it before proceeding. Exiting...\n"
   fi
 }
 

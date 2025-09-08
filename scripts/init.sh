@@ -41,6 +41,7 @@ if ! [ -d "${DEPLOYMENT_DIR}" ]; then
     if [ "${NODE_TYPE}" = "rpc-node" ]; then
       set_up_rpc_methods_env_var
       set_up_pruning_env_var
+      set_up_rpc_max_connections
       set_up_rpc_max_batch_request_len
       set_up_pool_limit
       set_up_pool_kbytes
