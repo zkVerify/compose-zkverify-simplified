@@ -479,4 +479,3 @@ set_acme_email_address() {
     fi
   done
 }
-
