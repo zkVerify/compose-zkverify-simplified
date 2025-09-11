@@ -1,6 +1,6 @@
-# Compose zkverify simplified
+# Compose zkVerify simplified
 
-This repository contains resources for deploying zkVerify nodes, including RPC, validator, and boot nodes on both the **testnet** and **mainnet**.
+This repository contains all the necessary resources for deploying zkVerify nodes, including RPC, validator, and boot nodes.
 
 
 ## Project overview
@@ -11,7 +11,7 @@ There are three types of nodes that can be deployed:
 2. validator
 3. boot
 
-When using any of the scripts provided in this repository, it will be requested to select **node type** and the **network** to run on.
+All scripts in this repository prompt for selection of the **node type** and the **network** to deploy.
 
 ---
 
@@ -24,19 +24,22 @@ When using any of the scripts provided in this repository, it will be requested 
 
 ---
 
-## Installation instructions
+## Instructions
 
-Run the [init.sh](./scripts/init.sh) script and follow the instructions in order to prepare the deployment for the first time.
+⚠️ **Please review the `OPTIONAL` steps before manually starting the project after running the `./scripts/init.sh` script.**
+
+Run the [init.sh](./scripts/init.sh) script and follow the instructions to prepare the deployment for the first time.
+
+This script will generate all necessary deployment files under the [deployments](deployments) directory and provide the command to start the project. **However, it will not start the project automatically.**
 
 ```shell
 ./scripts/init.sh
 ```
 
-The script will generate the required deployment files under the [deployments](deployments) directory.
-
 ### Optional: ZKV Node Data Snapshots
 
-To reduce the time required for a node's startup, **daily snapshots of chain data** are available [here](https://bootstraps.zkverify.io).
+To reduce the time required for a node's startup, **daily snapshots of chain data** are available for:
+- Testnet: https://bootstraps.zkverify.io/
 
 Snapshots are available in two forms:
 
@@ -80,25 +83,20 @@ Use the following steps to implement this approach:
 
 ### Update
 
-When a new version of the node is released this project will be updated with the new version modified in the `.env.*.template` files.
-
-There may also be other changes to environment variables or configuration files that may need to be updated.
-
-In order to update the project to the new version:
+To update the project to a new version (e.g., when a new release is available):
 
 1. Pull the latest changes from the repository.
 2. Run the [update.sh](./scripts/update.sh) script.
+
+⚠️ If the script prompts to update values in the `.env` file, it is **recommended** to accept all changes, unless there is a specific reason not to.
 
 ```shell
 ./scripts/update.sh
 ```
 
-Should the script prompt you to update some of the values in .env file, it is recommended to accept all the changes
-unless you know what you are doing.
-
 ### Destroy
 
-Run the [destroy.sh](./scripts/destroy.sh) script to destroy the node stack and all the associated resources.
+Run the [destroy.sh](./scripts/destroy.sh) script to destroy the node stack and all the associated resources. The script will prompt for confirmation before removing any resources.
 
 ```shell
 ./scripts/destroy.sh
@@ -152,4 +150,3 @@ Please refer to the [CONTRIBUTING.md](CONTRIBUTING.md) file for information on h
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ---
-
