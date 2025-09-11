@@ -2,7 +2,6 @@
 
 This repository contains all the necessary resources for deploying zkVerify nodes, including RPC, validator, and boot nodes.
 
-
 ## Project overview
 
 There are three types of nodes that can be deployed:
