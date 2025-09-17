@@ -22,6 +22,7 @@ backup_dir=${DEPLOYMENT_DIR}_BK_$(date +%Y%m%d%H%M%S)
 log_warn "\nBacking up deployment directory in ${backup_dir}"
 cp -r "${DEPLOYMENT_DIR}" "${backup_dir}" || fn_die "\nError: could not backup deployment directory. Fix it before proceeding any further. Exiting...\n"
 cp "${ROOT_DIR}/compose_files/docker-compose-${NODE_TYPE}.yml" "${DEPLOYMENT_DIR}/docker-compose.yml"
+chmod 0600 "${ENV_FILE}"
 
 # Define the auto update variables
 auto_update_vars=(

@@ -1,7 +1,7 @@
 ## 1.0.0
 * node: zkVerify version set to `latest`
-* general: support for mainnet added
-* automation: added support for setting optional --pool-limit and --pool-kbytes parameters for RPC node
+* general: support for **MAINNET** added
+* automation: added support for setting optional **--pool-limit** and **--pool-kbytes** parameters for RPC node
 * automation: added functionality to preserve optional variables during upgrade process
 * compose: added **RUST_LOG** and **ZKV_CONF_LOG** to env files
 
