@@ -9,28 +9,27 @@ networks:
     internal: true
     ipam:
       config:
-        - subnet: ${INTERNAL_NETWORK_SUBNET?err_unset}
+        - subnet: ${INTERNAL_NETWORK_SUBNET:?err_unset}
   inet:
 
 services:
   node:
-    image: horizenlabs/zkverify:${NODE_VERSION?err_unset}
-    container_name: "${NODE_ROLE?err_unset}"
-    hostname: "${NODE_ROLE?err_unset}"
+    image: zkverify/relay-node:${NODE_VERSION:?err_unset}
+    container_name: "${NODE_ROLE:?err_unset}"
     restart: on-failure:5
     env_file:
       - .env
     environment:
-      - "LETSENCRYPT_HOST=${ACME_VHOST?err_unset}"
-      - "VIRTUAL_HOST=${ACME_VHOST?err_unset}"
-      - "VIRTUAL_PORT=${NODE_NET_P2P_PORT_WS?err_unset}"
+      - "LETSENCRYPT_HOST=${ACME_VHOST:?err_unset}"
+      - "VIRTUAL_HOST=${ACME_VHOST:?err_unset}"
+      - "VIRTUAL_PORT=${NODE_NET_P2P_PORT_WS:?err_unset}"
     networks:
       node-network:
-        ipv4_address: ${NODE_NET_IP_ADDRESS?err_unset}
+        ipv4_address: ${NODE_NET_IP_ADDRESS:?err_unset}
       inet:
     ports:
-      - "${NODE_NET_P2P_PORT?err_unset}:${NODE_NET_P2P_PORT?err_unset}"
-      - "${NODE_NET_P2P_PORT_WS?err_unset}:${NODE_NET_P2P_PORT_WS?err_unset}"
+      - "${NODE_NET_P2P_PORT:?err_unset}:${NODE_NET_P2P_PORT:?err_unset}"
+      - "${NODE_NET_P2P_PORT_WS:?err_unset}:${NODE_NET_P2P_PORT_WS:?err_unset}"
     volumes:
       - "node-data:/data:rw"
     logging:
@@ -42,7 +41,6 @@ services:
   nginx-proxy:
     image: nginxproxy/nginx-proxy
     container_name: nginx-proxy
-    hostname: nginx-proxy
     pull_policy: always
     restart: on-failure:5
     depends_on:
@@ -57,10 +55,9 @@ services:
     environment:
       - DEBUG=true
       - TRUST_DOWNSTREAM_PROXY=true
-      - "RESOLVERS=127.0.0.11 8.8.8.8 valid=300s timeout=5s"
     networks:
       node-network:
-        ipv4_address: ${NGINX_NET_IP_ADDRESS?err_unset}
+        ipv4_address: ${NGINX_NET_IP_ADDRESS:?err_unset}
       inet:
     tmpfs:
       - /var/cache/nginx
@@ -74,21 +71,20 @@ services:
   acme-companion:
     image: nginxproxy/acme-companion
     container_name: nginx-proxy-acme
-    hostname: nginx-proxy-acme
     pull_policy: always
     restart: on-failure:5
     depends_on:
       - nginx-proxy
     environment:
-      - "DEFAULT_EMAIL=${ACME_DEFAULT_EMAIL?err_unset}"
-    volumes_from:
-      - nginx-proxy
+      - "DEFAULT_EMAIL=${ACME_DEFAULT_EMAIL:?err_unset}"
+      - NGINX_PROXY_CONTAINER=nginx-proxy
     volumes:
       - "acme:/etc/acme.sh:rw"
       - "certs:/etc/nginx/certs:rw"
+      - "html:/usr/share/nginx/html:rw"
       - "/var/run/docker.sock:/var/run/docker.sock:ro"
     networks:
-      - inet
+      inet:
     tmpfs:
       - /var/cache
       - /run

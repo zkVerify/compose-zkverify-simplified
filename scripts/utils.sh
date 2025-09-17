@@ -22,6 +22,9 @@ log() {
   local green=32
   # shellcheck disable=SC2034
   local yellow=33
+  # shellcheck disable=SC2034
+  local blue=36
+
 
   local usage="Usage: ${FUNCNAME[0]} style color \"message\"\nStyles: bold, italic, normal, light\nColors: black, red, green, yellow\nExample: log bold red \"Error: Something went wrong\""
   [ "$#" -lt 3 ] && {
@@ -39,7 +42,7 @@ log() {
     exit 1
   fi
   # validate color is in black, red, green
-  if [[ ! "${color}" =~ ^(black|red|green|yellow)$ ]]; then
+  if [[ ! "${color}" =~ ^(black|red|green|yellow|blue)$ ]]; then
     message="Error: Invalid color. Must be one of black, red, green or yellow."
     echo -e "\033[${bold};${red}m${message}\033[0m"
     exit 1
@@ -66,6 +69,13 @@ log_warn() {
   [ "${1:-}" = "usage" ] && log_debug "${usage}" && return
   [ "$#" -ne 1 ] && fn_die "\n${FUNCNAME[0]} error: function requires exactly one argument.\n\n${usage}"
   log normal yellow "${1}" >&2
+}
+
+log_blue() {
+  local usage="Log a message in blue - Usage: ${FUNCNAME[0]} {message}"
+  [ "${1:-}" = "usage" ] && log_debug "${usage}" && return
+  [ "$#" -ne 1 ] && fn_die "\n${FUNCNAME[0]} error: function requires exactly one argument.\n\n${usage}"
+  log bold blue "${1}" >&2
 }
 
 log_red() {
@@ -127,7 +137,7 @@ verify_required_commands() {
 
   command -v docker &>/dev/null || fn_die "${FUNCNAME[0]} Error: 'docker' is required to run this script, see installation instructions at 'https://docs.docker.com/engine/install/'."
 
-  (docker compose version 2>&1 | grep -q v2) || fn_die "${FUNCNAME[0]} Error: 'docker compose' is required to run this script, see installation instructions at 'https://docs.docker.com/compose/install/'."
+  (docker compose version 2>&1 | grep -q "v2\|version 2") || fn_die "${FUNCNAME[0]} Error: 'docker compose' is required to run this script, see installation instructions at 'https://docs.docker.com/compose/install/'."
 
   if [ "$(uname)" = "Darwin" ]; then
     command -v gsed &>/dev/null || fn_die "${FUNCNAME[0]} Error: 'gnu-sed' is required to run this script in MacOS environment, see installation instructions at 'https://formulae.brew.sh/formula/gnu-sed'. Make sure to add it to your PATH."
@@ -217,7 +227,7 @@ select_node_type() {
 
 select_network() {
   log_warn "\nWhat 'network' would you like to use: "
-  NETWORKS="testnet"
+  NETWORKS="testnet mainnet"
   NETWORK="$(selection "${NETWORKS}")"
   export NETWORK
 }
@@ -228,7 +238,10 @@ set_deployment_dir() {
 }
 
 set_env_file() {
-  ENV_FILE_TEMPLATE="${ROOT_DIR}/env/.env.${NODE_TYPE}.${NETWORK}.template"
+  ENV_FILE_TEMPLATE="${ROOT_DIR}/env/${NETWORK}/.env.${NODE_TYPE}.template"
+  if [ ! -s "${ENV_FILE_TEMPLATE}" ]; then
+    fn_die "\nError: Environment template file '${ENV_FILE_TEMPLATE}' is missing or empty. Exiting ..."
+  fi
   ENV_FILE="${DEPLOYMENT_DIR}/.env"
   export ENV_FILE_TEMPLATE
   export ENV_FILE
@@ -246,7 +259,7 @@ create_node_key() {
     fi
     node_key_provided="true"
   else
-    if ! node_key="$(docker run --rm --entrypoint zkv-relay horizenlabs/zkverify:"${NODE_VERSION}" key generate-node-key)"; then
+    if ! node_key="$(docker run --rm --entrypoint zkv-relay zkverify/relay-node:"${NODE_VERSION}" key generate-node-key)"; then
       fn_die "\nError: could not generate node key. Fix it before proceeding any further. Exiting...\n"
     fi
   fi
@@ -272,7 +285,7 @@ create_secret_phrase() {
       fn_die "Secret phrase import aborted; please run again the init.sh script. Exiting ...\n"
     fi
   else
-    if ! secret_json="$(docker run --rm --entrypoint zkv-relay horizenlabs/zkverify:"${NODE_VERSION}" key generate --output-type json)"; then
+    if ! secret_json="$(docker run --rm --entrypoint zkv-relay zkverify/relay-node:"${NODE_VERSION}" key generate -w24 --output-type json)"; then
       fn_die "\nError: could not generate secret phrase. Fix it before proceeding any further. Exiting...\n"
     fi
     if [ -z "${secret_json}" ]; then
@@ -330,23 +343,83 @@ set_up_pruning_env_var() {
   fi
 }
 
+set_up_rpc_max_connections() {
+  max_connections_answer="$(selection_yn "\nDo you want to set a maximum number of RPC connections? (default: 100)")"
+  if [ "${max_connections_answer}" = "yes" ]; then
+    log_warn "\nPlease specify the maximum number of RPC connections allowed (must be a whole number): "
+    read -rp "#? " max_connections_value
+    while [[ -z "${max_connections_value}" || ! "${max_connections_value}" =~ ^[1-9][0-9]*$ ]]; do
+      if [[ -z "${max_connections_value}" ]]; then
+        log_warn "\nMaximum number of RPC connections cannot be empty. Try again..."
+      else
+        log_warn "\nInvalid input. Please enter a whole number without leading zeros (e.g., 1, 50, 1000)..."
+      fi
+      read -rp "#? " max_connections_value
+    done
+    echo "ZKV_CONF_RPC_MAX_CONNECTIONS=${max_connections_value}" >> "${ENV_FILE}" || fn_die "\nError: could not set the maximum RPC connections variable in ${ENV_FILE}. Fix it before proceeding. Exiting...\n"
+  fi
+}
+
 set_up_rpc_max_batch_request_len() {
-  max_batch_request_len_answer="$(selection_yn "\nDo you want to set a limit for the max length per RPC batch request")"
+  max_batch_request_len_answer="$(selection_yn "\nDo you want to set a maximum length for RPC batch requests? (default: no limit)")"
   if [ "${max_batch_request_len_answer}" = "yes" ]; then
     log_warn "\nPlease specify the maximum number of requests allowed in a single RPC batch (must be a whole number): "
     read -rp "#? " max_batch_request_len_value
-    while [ -z "${max_batch_request_len_value}" ]; do
-      log_warn "\nMaximum number of requests allowed in a single RPC batch value cannot be empty. Try again..."
+    while [[ -z "${max_batch_request_len_value}" || ! "${max_batch_request_len_value}" =~ ^[1-9][0-9]*$ ]]; do
+      if [[ -z "${max_batch_request_len_value}" ]]; then
+        log_warn "\nMaximum number of requests allowed in a single RPC batch value cannot be empty. Try again..."
+      else
+        log_warn "\nInvalid input. Please enter a whole number without leading zeros (e.g., 0, 1, 25000)..."
+      fi
       read -rp "#? " max_batch_request_len_value
     done
     echo "ZKV_CONF_RPC_MAX_BATCH_REQUEST_LEN=${max_batch_request_len_value}" >> "${ENV_FILE}" || fn_die "\nError: could not set a limit for the max length per RPC batch request variable in ${ENV_FILE} file. Fix it before proceeding any further. Exiting...\n"
   fi
 }
 
+set_up_pool_limit() {
+  pool_limit_answer="$(selection_yn "\nDo you want to set custom value for the maximum number of transactions in the transaction pool? (defaults to 8192)")"
+  if [ "${pool_limit_answer}" = "yes" ]; then
+    log_warn "\nPlease specify the maximum number of transactions (must be a whole number): "
+    read -rp "#? " pool_limit_answer
+    while [[ -z "${pool_limit_answer}" || ! "${pool_limit_answer}" =~ ^[1-9][0-9]*$ ]]; do
+      if [[ -z "${pool_limit_answer}" ]]; then
+        log_warn "\nMaximum number of transactions value cannot be empty. Try again..."
+      else
+        log_warn "\nInvalid input. Please enter a whole number without leading zeros (e.g., 0, 1, 25000)..."
+      fi
+      read -rp "#? " pool_limit_answer
+    done
+    echo "ZKV_CONF_POOL_LIMIT=${pool_limit_answer}" >> "${ENV_FILE}" || fn_die "\nError: could not set the maximum number of transactions in the transaction pool variable in ${ENV_FILE} file. Fix it before proceeding any further. Exiting...\n"
+  fi
+}
+
+set_up_pool_kbytes() {
+  pool_kbytes_answer="$(selection_yn "\nDo you want to set a custom value for the maximum total size of all transactions in the pool in kilobytes? (defaults to 20480)")"
+
+  if [ "${pool_kbytes_answer}" = "yes" ]; then
+    log_warn "\nPlease specify the maximum transaction pool size in kilobytes (must be a whole number, e.g., 1024, 20480): "
+    read -rp "#? " pool_kbytes_answer
+
+    # Sanity check: must be a non-zero whole number
+    while [[ -z "${pool_kbytes_answer}" || ! "${pool_kbytes_answer}" =~ ^[1-9][0-9]*$ ]]; do
+      if [[ -z "${pool_kbytes_answer}" ]]; then
+        log_warn "\nMaximum pool size value cannot be empty. Try again..."
+      else
+        log_warn "\nInvalid input. Enter a whole number greater than 0, in kilobytes (e.g., 1024, 20480)..."
+      fi
+      read -rp "#? " pool_kbytes_answer
+    done
+
+    echo "ZKV_CONF_POOL_KBYTES=${pool_kbytes_answer}" >> "${ENV_FILE}" \
+      || fn_die "\nError: could not set the maximum transaction pool size (in kB) in ${ENV_FILE}. Fix it before proceeding. Exiting...\n"
+  fi
+}
+
 # Function to set and check if the FQDN is valid
 set_acme_vhost() {
   while true; do
-    log_warn "\nPlease type or paste a valid FQDN value for Let's Encrypt to use for 'p2p/wss' support setup.\nIt has to satisfy the following requirements: https://github.com/nginx-proxy/acme-companion/blob/904b5e38b17183c7c40e194869faad08b09fa9dc/README.md#http-01-challenge-requirements"
+    log_warn "\nPlease type or paste a valid FQDN value for Let's Encrypt to use for 'p2p/wss' support setup.\nIt has to satisfy the following requirements: https://github.com/nginx-proxy/acme-companion/blob/main/README.md#http-01-challenge-requirements"
     read -rp "#? " fqdn
 
     # Check if the input is empty
@@ -356,7 +429,7 @@ set_acme_vhost() {
     fi
 
     # Check if the FQDN matches the regex pattern
-    if [[ "${fqdn}" =~ ^([a-zA-Z0-9]([-a-zA-Z0-9]*[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$ ]]; then
+    if [[ "$fqdn" =~ ^([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,63}$ ]]; then
       # Ask for confirmation
       nginx_value_confirm="$(selection_yn "\nDo you confirm this is the FQDN value you want to use: ${fqdn}?")"
       if [ "${nginx_value_confirm}" = "yes" ]; then
@@ -406,4 +479,3 @@ set_acme_email_address() {
     fi
   done
 }
-

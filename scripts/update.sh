@@ -22,6 +22,7 @@ backup_dir=${DEPLOYMENT_DIR}_BK_$(date +%Y%m%d%H%M%S)
 log_warn "\nBacking up deployment directory in ${backup_dir}"
 cp -r "${DEPLOYMENT_DIR}" "${backup_dir}" || fn_die "\nError: could not backup deployment directory. Fix it before proceeding any further. Exiting...\n"
 cp "${ROOT_DIR}/compose_files/docker-compose-${NODE_TYPE}.yml" "${DEPLOYMENT_DIR}/docker-compose.yml"
+chmod 0600 "${ENV_FILE}"
 
 # Define the auto update variables
 auto_update_vars=(
@@ -31,6 +32,13 @@ auto_update_vars=(
 )
 
 conditional_update_vars=()
+
+optional_do_not_remove_vars=(
+  "ZKV_CONF_RPC_MAX_CONNECTIONS"
+  "ZKV_CONF_RPC_MAX_BATCH_REQUEST_LEN"
+  "ZKV_CONF_POOL_LIMIT"
+  "ZKV_CONF_POOL_KBYTES"
+)
 
 # Read the .env.template file line by line, skip blank lines and comments, store each of the other lines in an array
 log_info "\n=== Reading ${ENV_FILE_TEMPLATE} file"
@@ -54,8 +62,20 @@ done
 while IFS= read -r line; do
   [[ -z "${line}" || "${line:0:1}" == "#" ]] && continue
   env_var_name="$(cut -d'=' -f1 <<< "${line}")"
+
+  # Skip vars that are in the do-not-remove list
+  if printf '%s\n' "${optional_do_not_remove_vars[@]}" | grep -q -P "^${env_var_name}$"; then
+    log_info "\n========================"
+    log_blue "Preserving optional variable '${env_var_name}'"
+    log_info "========================\n"
+    continue
+  fi
+
+  # Remove vars not in template
   if ! printf '%s\n' "${template_var_names[@]}" | grep -q -P "^${env_var_name}$"; then
+    log_info "\n========================"
     log_warn "Removing obsolete variable '${env_var_name}' from ${ENV_FILE}"
+    log_info "\n========================"
     sed -i "/^${env_var_name}=.*/d" "${ENV_FILE}"
   fi
 done < <(grep -v '^#' "${ENV_FILE}")
@@ -111,7 +131,7 @@ log_info "\n=== Please review the changes in the ${ENV_FILE} file, if there is a
 log_info "\n=== Project has been updated correctly for ${NODE_TYPE} on ${NETWORK}"
 log_info "\n=== Start the compose project with the following command: "
 log_info "\n========================"
-log_warn "docker compose -f ${DEPLOYMENT_DIR}/docker-compose.yml up -d --pull --force-recreate"
+log_warn "docker compose -f ${DEPLOYMENT_DIR}/docker-compose.yml up -d --pull=always --force-recreate"
 log_info "========================\n"
 
 exit 0
