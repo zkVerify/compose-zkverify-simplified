@@ -41,14 +41,7 @@ is deemed necessary and appropriate to the circumstances. Maintainers are
 obligated to maintain confidentiality with regard to the reporter of an
 incident.
 
-You may send reports to [our Conduct email](mailto:info@horizen.io).
-
-If you wish to contact specific maintainers directly, the following have made
-themselves available for conduct issues:
-
-- lander86 (Luigi at horizen.io)
-- cronic (cronic at horizen.io)
-
+You may send reports to [our Conduct email](mailto:security@zkverify.io).
 
 This Code of Conduct is adapted from the [Contributor Covenant][homepage],
 version 1.3.0, available at
