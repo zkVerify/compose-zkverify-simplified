@@ -180,6 +180,8 @@ check_required_variables() {
     "ZKV_CONF_NAME"
     "ZKV_CONF_BASE_PATH"
     "ZKV_CONF_CHAIN"
+    "ZKV_CONF_NO_PRIVATE_IP"
+    "ZKV_CONF_NO_MDNS"
   )
 
   if [ "${NODE_TYPE}" = "boot-node" ]; then
