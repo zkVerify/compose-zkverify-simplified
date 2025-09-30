@@ -54,7 +54,7 @@ To use a snapshot:
    ```shell
    ./scripts/stop.sh
    ```
-2. Navigate to the node's data directory. This may require `sudo` access. For an RPC node, the path is:
+2. Navigate to the node's data directory. This may require `sudo` permissions. For an RPC node, the path is:
    ```
    /var/lib/docker/volumes/zkverify-rpc_node-data/_data/node/chains/zkv_mainnet
    ```
