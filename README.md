@@ -56,7 +56,7 @@ To use a snapshot:
    ```
 2. Navigate to the node's data directory. This may require `sudo` permissions. For an RPC node, the path is:
    ```
-   /var/lib/docker/volumes/zkverify-rpc_node-data/_data/node/chains/zkv_mainnet
+   cd /var/lib/docker/volumes/zkverify-rpc_node-data/_data/node/chains/zkv_mainnet
    ```
 3. Note the owner and permissions of the existing `db` directory, then delete it.
 4. Extract the downloaded snapshot and move its `db` folder to the current directory.
