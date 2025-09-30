@@ -38,7 +38,8 @@ This script will generate all necessary deployment files under the [deployments]
 ### Optional: ZKV Node Data Snapshots
 
 To reduce the time required for a node's startup, **daily snapshots of chain data** are available for:
-- Testnet: https://bootstraps.zkverify.io/
+- Mainnet: https://bootstraps.zkverify.io/
+- Testnet: https://bootstraps.zkverify.io/volta
 
 Snapshots are available in two forms:
 
@@ -46,6 +47,26 @@ Snapshots are available in two forms:
 - **Archive node snapshot**
 
 Each snapshot is a **.tar.gz** archive containing the **db** directory, intended to replace the **db** directory generated during the initial node run.
+
+To use a snapshot:
+
+1. Stop the running node:
+   ```shell
+   ./scripts/stop.sh
+   ```
+2. Navigate to the node's data directory. This may require `sudo` access. For an RPC node, the path is:
+   ```
+   /var/lib/docker/volumes/zkverify-rpc_node-data/_data/node/chains/zkv_mainnet
+   ```
+3. Note the owner and permissions of the existing `db` folder, then delete it.
+4. Extract the downloaded snapshot and move its `db` folder to the current directory.
+5. Ensure the new `db` folder have the same permission the original db folder had
+6. Start the node:
+   ```shell
+   ./scripts/start.sh
+   ```
+7. Verify the snapshot is working by checking the logs for `Highest known block at`, which should be close to the current chain height.
+8. Watch the logs until you can see the block height increasing.
 
 ### Optional: ZKV Node Secrets Injection
 
