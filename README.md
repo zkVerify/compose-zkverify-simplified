@@ -61,7 +61,7 @@ To use a snapshot:
 3. Note the owner and permissions of the existing `db` directory, then delete it.
 4. Extract the downloaded snapshot and move its `db` directory into the current directory.
 5. Ensure the new `db` directory has the same permissions as the original db directory.
-6. Start the node:
+6. Return to the project directory and start the node:
    ```shell
    ./scripts/start.sh
    ```
