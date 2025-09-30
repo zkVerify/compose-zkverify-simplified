@@ -58,7 +58,7 @@ To use a snapshot:
    ```
    /var/lib/docker/volumes/zkverify-rpc_node-data/_data/node/chains/zkv_mainnet
    ```
-3. Note the owner and permissions of the existing `db` folder, then delete it.
+3. Note the owner and permissions of the existing `db` directory, then delete it.
 4. Extract the downloaded snapshot and move its `db` folder to the current directory.
 5. Ensure the new `db` folder have the same permission the original db folder had
 6. Start the node:
