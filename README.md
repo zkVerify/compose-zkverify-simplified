@@ -50,23 +50,27 @@ Each snapshot is a **.tar.gz** archive containing the **db** directory, intended
 
 To use a snapshot:
 
-1. Stop the running node:
+- Stop the running node:
    ```shell
    ./scripts/stop.sh
    ```
-2. Navigate to the node's data directory. This may require `sudo` permissions. For an RPC node, the path is:
-   ```
-   cd /var/lib/docker/volumes/zkverify-rpc_node-data/_data/node/chains/zkv_mainnet
-   ```
-3. Note the owner and permissions of the existing `db` directory, then delete it.
-4. Extract the downloaded snapshot and move its `db` directory into the current directory.
-5. Ensure the new `db` directory has the same permissions as the original db directory.
-6. Return to the project directory and start the node:
+- Navigate to the zkVerify node's data directory. This may require `sudo` permissions. For an RPC node, the path is:
+    - For testnet:
+        ```
+        cd /var/lib/docker/volumes/zkverify-rpc-testnet_node-data/_data/node/chains/zkv_testnet
+        ```
+    - For mainnet:
+        ```
+        cd /var/lib/docker/volumes/zkverify-rpc_node-data/_data/node/chains/zkv_mainnet
+        ```
+- Note the owner and permissions of the existing `db` directory, then delete it.
+- Extract the downloaded snapshot and move its `db` directory into the current directory.
+- Ensure the new `db` directory has the same permissions as the original db directory.
+- Return to the project directory and start the node:
    ```shell
    ./scripts/start.sh
    ```
-7. Verify the snapshot is working by checking the logs for `Highest known block at`, which should be close to the current chain height.
-8. Watch the logs until you can see the block height increasing.
+- Verify the snapshot is working by checking the node's Docker logs to ensure the **relay** and **para** chains’ block heights start near their respective current heights and continue steadily increasing.
 
 ### Optional: ZKV Node Secrets Injection
 
