@@ -70,7 +70,7 @@ To use a snapshot:
    ```shell
    ./scripts/start.sh
    ```
-7. Verify the snapshot is working by checking the node's Docker logs to ensure the **relay** and **para** chains’ block heights start near their respective current heights and continue steadily increasing.
+7. Verify the snapshot is working by checking the node's Docker logs to ensure the block height starts near its respective current chain height and continue steadily increasing.
 
 ### Optional: ZKV Node Secrets Injection
 
