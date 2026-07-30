@@ -17,7 +17,7 @@ All scripts in this repository prompt for selection of the **node type** and the
 ## Requirements
 
 * docker
-* docker compose
+* docker compose (v2 or newer)
 * jq
 * gnu-sed for Darwin distribution
 
@@ -105,6 +105,27 @@ Use the following steps to implement this approach:
     ```
 4. Start compose project using the command provided in the end of [init.sh](./scripts/init.sh) script execution.
 
+### Optional: Public Address
+
+The **ZKV_CONF_PUBLIC_ADDR** variable sets the node's `--public-addr` parameter and is optional. Declining is valid and safe, and is the right choice if you are unsure.
+
+[init.sh](./scripts/init.sh) asks for this during first-time setup. Answer **yes** only if this node runs on a machine with a public IP address or hostname that other nodes can connect to. A wrong address is worse than none.
+
+Choose an address type from the menu:
+
+- ipv4 address
+- hostname
+
+Enter the address on its own, without the `/ip4/` or `/dns/` prefix and without the `/tcp/<port>` suffix; the script adds those. The port always comes from **NODE_NET_P2P_PORT**, so it differs between node types. In the `.env` file the result looks like `ZKV_CONF_PUBLIC_ADDR="/ip4/<your-public-ipv4>/tcp/<NODE_NET_P2P_PORT>"`. Choose `done` to finish, or add another address first.
+
+The script rejects addresses that can never work as a public address, including private ranges, loopback, link-local, multicast, carrier-grade NAT, documentation addresses, and local or reserved hostnames.
+
+If you decline, the script comments the variable out (`#ZKV_CONF_PUBLIC_ADDR=""`) so the node starts without the parameter. Set a value and remove the leading `#` at any time.
+
+⚠️ Other validators may not be able to reach this node, and a future node version will require a public address.
+
+[update.sh](./scripts/update.sh) asks for this variable once, on the first run where it has not yet been set or declined. If you quit at the prompt, the next run asks again.
+
 ### Update
 
 To update the project to a new version (e.g., when a new release is available):
@@ -113,6 +134,8 @@ To update the project to a new version (e.g., when a new release is available):
 2. Run the [update.sh](./scripts/update.sh) script.
 
 ⚠️ If the script prompts to update values in the `.env` file, it is **recommended** to accept all changes, unless there is a specific reason not to.
+
+If **ZKV_CONF_PUBLIC_ADDR** has not yet been set or declined, the script asks for it once. See [Optional: Public Address](#optional-public-address).
 
 ```shell
 ./scripts/update.sh

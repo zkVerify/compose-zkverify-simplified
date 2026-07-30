@@ -39,6 +39,8 @@ if ! [ -d "${DEPLOYMENT_DIR}" ]; then
 
     set_up_node_name_env_var
 
+    set_up_public_addr
+
     if [ "${NODE_TYPE}" = "rpc-node" ]; then
       set_up_rpc_methods_env_var
       set_up_pruning_env_var

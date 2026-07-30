@@ -80,10 +80,20 @@ while IFS= read -r line; do
   fi
 done < <(grep -v '^#' "${ENV_FILE}")
 
+# Track whether the public address still needs to be settled, so it can be set up at the end of the run
+public_addr_is_new=no
+if ! public_addr_is_configured; then
+  public_addr_is_new=yes
+fi
+
 # Append new env vars to .env file
 log_info "\n=== Appending new env vars to ${ENV_FILE} file"
 for line in "${env_template_lines[@]}"; do
   var_name="$(cut -d'=' -f1 <<< "${line}")"
+  # Owned by set_up_public_addr, which also writes it commented out when no address is provided
+  if [ "${var_name}" = "ZKV_CONF_PUBLIC_ADDR" ]; then
+    continue
+  fi
   if ! grep -q "^${var_name}=" "${ENV_FILE}"; then
     echo -e "\n${line}" >>"${ENV_FILE}"
   fi
@@ -123,6 +133,10 @@ for line in "${env_template_lines[@]}"; do
     done
   fi
 done
+
+if [ "${public_addr_is_new}" = "yes" ]; then
+  set_up_public_addr
+fi
 
 log_info "\n=== ${ENV_FILE} update completed successfully"
 

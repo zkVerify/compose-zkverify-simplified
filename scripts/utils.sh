@@ -97,10 +97,15 @@ selection() {
 
   local select_from_string="${1:-}"
   local user_exit_err_code=234
+  local quit_label
+  # List one option per line, so a long entry is not split across columns
+  local COLUMNS=1
+  # Colour only the quit entry, so the way out of the menu stands out
+  quit_label="$(printf '\033[1;31mquit\033[0m')"
 
-  select item in ${select_from_string} "quit"; do
+  select item in ${select_from_string} "${quit_label}"; do
     case "${item}" in
-    "quit")
+    "${quit_label}")
       fn_die "Exiting" "${user_exit_err_code}"
       ;;
     "")
@@ -137,7 +142,7 @@ verify_required_commands() {
 
   command -v docker &>/dev/null || fn_die "${FUNCNAME[0]} Error: 'docker' is required to run this script, see installation instructions at 'https://docs.docker.com/engine/install/'."
 
-  (docker compose version 2>&1 | grep -q "v2\|version 2") || fn_die "${FUNCNAME[0]} Error: 'docker compose' is required to run this script, see installation instructions at 'https://docs.docker.com/compose/install/'."
+  (docker compose version 2>&1 | grep -Eq 'version:? v?([2-9]|[1-9][0-9]+)\.') || fn_die "${FUNCNAME[0]} Error: 'docker compose' v2 or higher is required to run this script, see installation instructions at 'https://docs.docker.com/compose/install/'."
 
   if [ "$(uname)" = "Darwin" ]; then
     command -v gsed &>/dev/null || fn_die "${FUNCNAME[0]} Error: 'gnu-sed' is required to run this script in MacOS environment, see installation instructions at 'https://formulae.brew.sh/formula/gnu-sed'. Make sure to add it to your PATH."
@@ -418,6 +423,281 @@ set_up_pool_kbytes() {
   fi
 }
 
+# Reject addresses that can never work as a public address, so mistakes surface here
+validate_public_addr_range() {
+  local entry="${1}" ip lower o1 o2 o3
+
+  ip="${entry#/*/}"
+  ip="${ip%%/tcp/*}"
+
+  case "${entry}" in
+  /ip4/*)
+    IFS='.' read -r o1 o2 o3 _ <<< "${ip}"
+    if { [ "${o1}" -eq 192 ] && [ "${o2}" -eq 0 ] && [ "${o3}" -eq 2 ]; } \
+      || { [ "${o1}" -eq 198 ] && [ "${o2}" -eq 51 ] && [ "${o3}" -eq 100 ]; } \
+      || { [ "${o1}" -eq 203 ] && [ "${o2}" -eq 0 ] && [ "${o3}" -eq 113 ]; }; then
+      log_red "\n'${ip}' is a documentation address, not a real one."
+      return 1
+    fi
+    if [ "${o1}" -eq 0 ] || [ "${o1}" -eq 10 ] || [ "${o1}" -eq 127 ] || [ "${o1}" -ge 224 ] \
+      || { [ "${o1}" -eq 172 ] && [ "${o2}" -ge 16 ] && [ "${o2}" -le 31 ]; } \
+      || { [ "${o1}" -eq 192 ] && [ "${o2}" -eq 168 ]; } \
+      || { [ "${o1}" -eq 169 ] && [ "${o2}" -eq 254 ]; } \
+      || { [ "${o1}" -eq 100 ] && [ "${o2}" -ge 64 ] && [ "${o2}" -le 127 ]; } \
+      || { [ "${o1}" -eq 198 ] && [ "${o2}" -ge 18 ] && [ "${o2}" -le 19 ]; }; then
+      log_red "\n'${ip}' cannot be reached from the internet, so other nodes could not connect to it."
+      return 1
+    fi
+    ;;
+  /dns/*)
+    lower="$(echo "${ip}" | tr '[:upper:]' '[:lower:]')"
+    case "${lower}" in
+    *.example | *.example.com | *.example.net | *.example.org | example.com | example.net | example.org)
+      log_red "\n'${ip}' is a documentation name, not a real one."
+      return 1
+      ;;
+    *.local | *.localhost | *.localdomain | *.internal | *.intranet | *.lan | *.home | *.home.arpa | *.private | *.corp | *.test | *.invalid)
+      log_red "\n'${ip}' is a local or reserved name, so nodes on the internet could not resolve it."
+      return 1
+      ;;
+    esac
+    ;;
+  esac
+}
+
+# Report whether the public address has been settled, counting a commented line as a deliberate decline
+public_addr_is_configured() {
+  local line value
+
+  # Compose resolves a repeated key to the last one, so judge by the last active line
+  line="$(grep -E '^[[:space:]]*ZKV_CONF_PUBLIC_ADDR=' "${ENV_FILE}" | tail -1 || true)"
+
+  # With no active line, a commented one counts as a deliberate decline
+  if [ -z "${line}" ]; then
+    if grep -qE '^#+[[:space:]]*ZKV_CONF_PUBLIC_ADDR=' "${ENV_FILE}"; then
+      return 0
+    fi
+    return 1
+  fi
+
+  value="${line#*=}"
+  # Trim trailing whitespace, which also covers the CR of a CRLF ending
+  value="${value%"${value##*[![:space:]]}"}"
+  value="${value#[\"\']}"
+  value="${value%[\"\']}"
+  value="${value%"${value##*[![:space:]]}"}"
+  [ -n "${value}" ]
+}
+
+# Set the value, adding the line in its template position when an existing env file predates the variable
+set_public_addr_value() {
+  local value="${1}"
+  local line anchor
+
+  # Comment the line out when there is no value, so the node is not started with an empty argument
+  if [ -z "${value}" ]; then
+    line="#ZKV_CONF_PUBLIC_ADDR=\"\""
+  else
+    line="ZKV_CONF_PUBLIC_ADDR=\"${value}\""
+  fi
+
+  if grep -qE "^#*[[:space:]]*ZKV_CONF_PUBLIC_ADDR=" "${ENV_FILE}"; then
+    sed -i "s|^#*[[:space:]]*ZKV_CONF_PUBLIC_ADDR=.*|${line}|" "${ENV_FILE}" \
+      || fn_die "\nError: could not set ZKV_CONF_PUBLIC_ADDR in ${ENV_FILE}. Fix it before proceeding. Exiting...\n"
+    return
+  fi
+
+  # Take the position from the template, so the variable sits with the others instead of at the end of the file
+  anchor=""
+  if [ -r "${ENV_FILE_TEMPLATE:-}" ]; then
+    anchor="$(awk -F= '/^ZKV_CONF_PUBLIC_ADDR=/ { f = 1; next } f && /^[A-Za-z_][A-Za-z0-9_]*=/ { print $1; exit }' "${ENV_FILE_TEMPLATE}")"
+  fi
+
+  if [ -n "${anchor}" ] && grep -q "^${anchor}=" "${ENV_FILE}"; then
+    sed -i "/^${anchor}=/i ${line}" "${ENV_FILE}" \
+      || fn_die "\nError: could not add ZKV_CONF_PUBLIC_ADDR to ${ENV_FILE}. Fix it before proceeding. Exiting...\n"
+  else
+    echo -e "\n${line}" >>"${ENV_FILE}" \
+      || fn_die "\nError: could not add ZKV_CONF_PUBLIC_ADDR to ${ENV_FILE}. Fix it before proceeding. Exiting...\n"
+  fi
+}
+
+# Present a menu whose entries contain spaces, colouring the two entries that leave it
+selection_list() {
+  local user_exit_err_code=234
+  local quit_label done_label item
+  local -a options=()
+  # List one option per line, so a long entry is not split across columns
+  local COLUMNS=1
+  quit_label="$(printf '\033[1;31mquit\033[0m')"
+  done_label="$(printf '\033[1;32mdone\033[0m')"
+
+  for item in "$@"; do
+    if [ "${item}" = "done" ]; then
+      options+=("${done_label}")
+    else
+      options+=("${item}")
+    fi
+  done
+
+  select item in "${options[@]}" "${quit_label}"; do
+    case "${item}" in
+    "${quit_label}")
+      fn_die "Exiting" "${user_exit_err_code}"
+      ;;
+    "${done_label}")
+      echo "done"
+      break
+      ;;
+    "")
+      log_warn "\nInvalid selection. Please type the number of the option you want to use."
+      ;;
+    *)
+      echo "${item}"
+      break
+      ;;
+    esac
+  done
+}
+
+# Match a fully qualified domain name, shared by every check that asks for one
+is_fqdn() {
+  [[ "${1}" =~ ^([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,63}$ ]]
+}
+
+# Check the address on its own, so the message can name what is wrong with it
+validate_public_addr_host() {
+  local kind="${1}" value="${2}"
+  local ipv4='((25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\.){3}(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])'
+
+  case "${kind}" in
+  ip4)
+    if ! [[ "${value}" =~ ^${ipv4}$ ]]; then
+      log_red "\n'${value}' is not a valid IPv4 address. Enter four numbers between 0 and 255, separated by dots."
+      return 1
+    fi
+    ;;
+  dns)
+    if ! is_fqdn "${value}"; then
+      log_red "\n'${value}' is not a valid hostname. Enter the fully qualified domain name of this machine, for example 'node.mydomain.io'."
+      return 1
+    fi
+    ;;
+  esac
+}
+
+# Ask for one address of the chosen kind and return the assembled value
+read_public_addr_entry() {
+  local kind="${1}" port="${2}"
+  local label value entry
+
+  case "${kind}" in
+  ip4) label="public IPv4 address" ;;
+  dns) label="hostname" ;;
+  esac
+
+  while true; do
+    log_warn "\nEnter the ${label} of this machine, or press Enter to cancel."
+    read -rp "#? " value || value=""
+    value="${value#"${value%%[![:space:]]*}"}"
+    value="${value%"${value##*[![:space:]]}"}"
+    [ -z "${value}" ] && return 1
+    # Catch a pasted multiaddr, since only the address itself is expected here
+    case "${value}" in
+    */*)
+      log_red "\nEnter the address on its own. The script adds the '/${kind}/' and '/tcp/${port}' parts for you."
+      continue
+      ;;
+    esac
+    validate_public_addr_host "${kind}" "${value}" || continue
+    entry="/${kind}/${value}/tcp/${port}"
+    validate_public_addr_range "${entry}" || continue
+    echo "${entry}"
+    return 0
+  done
+}
+
+# Report the outcome once for both paths that reach it, flagging it for the node type it affects most
+log_public_addr_unset() {
+  if [ "${NODE_TYPE}" = "validator-node" ]; then
+    log_blue "\n⚠️ Leaving '--public-addr' unset. This node will sync normally, but other nodes may not be able to connect back to it."
+  else
+    log_debug "\nLeaving '--public-addr' unset. This node will sync normally, but other nodes may not be able to connect back to it."
+  fi
+}
+
+# Advertising a wrong address is worse than advertising none, so this is always opt-in
+set_up_public_addr() {
+  local answer choice entry joined confirm p2p_port kind
+  local -a entries
+
+  # Read the port from the env file so this can run before it has been sourced
+  p2p_port="$(grep '^NODE_NET_P2P_PORT=' "${ENV_FILE}" | tail -1 | cut -d'=' -f2 | tr -d '"' || true)"
+  if ! [[ "${p2p_port}" =~ ^[1-9][0-9]{0,4}$ ]] || [ "${p2p_port}" -gt 65535 ]; then
+    p2p_port=30333
+  fi
+
+  # Remove an empty value left by an interrupted run, so it cannot reach the node as an empty argument
+  sed -i -E "/^ZKV_CONF_PUBLIC_ADDR=(\"\"|'')?[[:space:]]*$/d" "${ENV_FILE}" \
+    || fn_die "\nError: could not update ZKV_CONF_PUBLIC_ADDR in ${ENV_FILE}. Fix it before proceeding. Exiting...\n"
+
+  # Surface the recommendation before the choice is made, since an empty value affects this node type most
+  if [ "${NODE_TYPE}" = "validator-node" ]; then
+    log_warn "\nNote: other validators may not be able to reach this node, and a future node version will require a public address."
+  fi
+
+  answer="$(selection_yn "\nOptional: the '--public-addr' parameter tells other nodes which address to use to reach this node.\nChoose 'yes' only if this machine has a public IP address or hostname that other nodes can connect to.\nIf you are unsure, choose 'no'. A wrong address is worse than none.\n\nDo you want to set '--public-addr'?")"
+  if [ "${answer}" = "no" ]; then
+    set_public_addr_value ""
+    log_public_addr_unset
+    return
+  fi
+
+  while true; do
+    entries=()
+
+    while true; do
+      log_warn "\nAdd a public address for this node:"
+      choice="$(selection_list "ipv4 address" "hostname" "done")"
+      [ "${choice}" = "done" ] && break
+
+      case "${choice}" in
+      "ipv4 address") kind=ip4 ;;
+      *) kind=dns ;;
+      esac
+
+      entry="$(read_public_addr_entry "${kind}" "${p2p_port}")" || continue
+
+      if [ "${#entries[@]}" -gt 0 ]; then
+        case ",$(IFS=','; echo "${entries[*]}")," in
+        *",${entry},"*)
+          log_warn "\n'${entry}' is already in the list."
+          continue
+          ;;
+        esac
+      fi
+
+      entries+=("${entry}")
+      log_debug "\nCurrent list: $(IFS=','; echo "${entries[*]}")"
+    done
+
+    if [ "${#entries[@]}" -eq 0 ]; then
+      set_public_addr_value ""
+      log_public_addr_unset
+      return
+    fi
+
+    joined="$(IFS=','; echo "${entries[*]}")"
+    confirm="$(selection_yn "\nSet '--public-addr' to: ${joined}?")"
+    if [ "${confirm}" = "yes" ]; then
+      break
+    fi
+    log_warn "\nDiscarding that list. Starting over..."
+  done
+
+  set_public_addr_value "${joined}"
+}
+
 # Function to set and check if the FQDN is valid
 set_acme_vhost() {
   while true; do
@@ -431,7 +711,7 @@ set_acme_vhost() {
     fi
 
     # Check if the FQDN matches the regex pattern
-    if [[ "$fqdn" =~ ^([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,63}$ ]]; then
+    if is_fqdn "${fqdn}"; then
       # Ask for confirmation
       nginx_value_confirm="$(selection_yn "\nDo you confirm this is the FQDN value you want to use: ${fqdn}?")"
       if [ "${nginx_value_confirm}" = "yes" ]; then
