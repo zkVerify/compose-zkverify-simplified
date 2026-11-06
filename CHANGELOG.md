@@ -1,3 +1,6 @@
+## 2.1.0
+* node: zkVerify version pinned to `2.0.0` for testnet and mainnet
+
 ## 2.0.0
 * node: zkVerify version pinned to `2.0.0` for testnet and mainnet
 
