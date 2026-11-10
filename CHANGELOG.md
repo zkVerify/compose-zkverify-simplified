@@ -1,4 +1,4 @@
-## 2.1.0-rc1
+## 2.1.0-testnet
 * node: zkVerify version pinned to `2.1.0` for testnet
 
 ## 2.0.0
