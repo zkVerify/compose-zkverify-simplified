@@ -1,4 +1,4 @@
-## 2.1.1
+## 2.1.0+1
 * boot-node: HTTP/2 disabled on `nginx-proxy` and the node's host set as its default host (hardening). Run `update.sh` and recreate the containers to apply
 
 ## 2.1.0-mainnet
