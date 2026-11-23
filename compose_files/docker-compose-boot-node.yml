@@ -55,6 +55,8 @@ services:
     environment:
       - DEBUG=true
       - TRUST_DOWNSTREAM_PROXY=true
+      - ENABLE_HTTP2=false
+      - "DEFAULT_HOST=${ACME_VHOST:?err_unset}"
     networks:
       node-network:
         ipv4_address: ${NGINX_NET_IP_ADDRESS:?err_unset}
